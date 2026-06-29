@@ -312,6 +312,17 @@ function renderFieldCard(field) {
     html += `<p class="field-description">${escapeHtml(field.description)}</p>`;
   }
 
+  // Selected value
+  if (field.selectedValue) {
+    html += `
+      <div class="field-detail" data-type="selected">
+        <span class="field-detail-label">Selected</span>
+        <span class="field-detail-value font-mono font-bold">${escapeHtml(field.selectedValue)}</span>
+      </div>
+    `;
+  }
+
+
   // When applicable
   if (field.whenApplicable) {
     html += `

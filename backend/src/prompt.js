@@ -31,8 +31,9 @@ You MUST return a valid JSON object with this exact structure:
   "pageSummary": "A conversational explanation of what is happening on this page. IMPORTANT: You MUST read and summarize the actual user data and numbers shown in the screenshot! If there are tables showing tax deductions (TDS), specific employer names, total amounts paid, refunds, or statuses, state those exact numbers and details in your summary. (Max 5-6 lines)",
   "fields": [
     {
-      "name": "The field label or name as shown on the page",
-      "description": "What this field means in plain language (MAX 1 line)",
+      "name": "The actual field label or heading (e.g., 'Tax Year', 'Residential Status'). DO NOT use the selected value as the name.",
+      "selectedValue": "The currently selected value in the dropdown or textbox, if any (e.g., '2026-27'). If none, leave empty.",
+      "description": "What this field means in plain language (MAX 1 line). If a value is selected, also briefly explain what the selected value means.",
       "whenApplicable": "Who needs to fill this and under what circumstances",
       "notes": "Any additional tips, dropdown explanations, or Yes/No guidance (MAX 3 lines)"
     }

@@ -558,6 +558,7 @@ body {
 }
 
 /* Detail type badges */
+.field-detail[data-type="selected"] .field-detail-label { color: var(--color-primary); }
 .field-detail[data-type="when"] .field-detail-label { color: var(--color-info); }
 .field-detail[data-type="mistakes"] .field-detail-label { color: var(--color-warning); }
 .field-detail[data-type="notes"] .field-detail-label { color: var(--color-success); }
