@@ -41,7 +41,7 @@ async function generateWithFallback(client, requestConfig) {
   try {
     return await client.models.generateContent(requestConfig);
   } catch (error) {
-    if (error.status === 429 || error?.message?.includes('429') || error?.message?.includes('quota')) {
+    if (error.status === 429 || error.status === 404 || error?.message?.includes('429') || error?.message?.includes('quota') || error?.message?.includes('not found')) {
       const fallbackModel = 'gemini-2.5-flash-lite';
       console.warn(`[TaxPilot] Model ${requestConfig.model} hit rate limit. Falling back to ${fallbackModel}...`);
       requestConfig.model = fallbackModel;

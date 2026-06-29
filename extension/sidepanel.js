@@ -399,5 +399,9 @@ function getErrorMessage(error) {
     return 'Could not read the page content. Try refreshing the page and trying again.';
   }
 
+  if (msg.includes('404') || msg.includes('502') || msg.includes('503')) {
+    return 'The backend server is waking up from sleep (Render free tier). This takes about 30-50 seconds. Please wait a moment and click Try Again.';
+  }
+
   return msg;
 }
