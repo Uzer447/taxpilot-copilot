@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaxPilot Copilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header" id="header">
+    <div class="header-content">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#grad1)" opacity="0.9"/>
+            <path d="M2 17L12 22L22 17" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="grad1" x1="2" y1="2" x2="22" y2="22">
+                <stop stop-color="#6366f1"/>
+                <stop offset="1" stop-color="#a78bfa"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-name">TaxPilot</span>
+          <span class="logo-badge">Copilot</span>
+        </div>
+      </div>
+      <div class="header-shortcut" title="Keyboard shortcut">
+        <kbd>⌘</kbd><span>+</span><kbd>⇧</kbd><span>+</span><kbd>Z</kbd>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main" id="main">
+    <!-- Welcome State -->
+    <div class="state-container" id="welcome-state">
+      <div class="welcome-illustration">
+        <div class="welcome-icon">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="32" cy="32" r="28" stroke="url(#welcomeGrad)" stroke-width="2" opacity="0.3"/>
+            <circle cx="32" cy="32" r="20" stroke="url(#welcomeGrad)" stroke-width="2" opacity="0.5"/>
+            <circle cx="32" cy="32" r="12" fill="url(#welcomeGrad)" opacity="0.15"/>
+            <path d="M26 32L30 36L38 28" stroke="url(#welcomeGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="welcomeGrad" x1="4" y1="4" x2="60" y2="60">
+                <stop stop-color="#6366f1"/>
+                <stop offset="1" stop-color="#a78bfa"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+      <h2 class="welcome-title">Ready to help</h2>
+      <p class="welcome-subtitle">Click the button below to analyze the current page and get explanations for every field.</p>
+      <button class="btn btn-primary" id="analyze-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21L16.65 16.65"/>
+        </svg>
+        Analyze This Page
+      </button>
+      <button class="btn btn-secondary" id="explain-selection-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7V4h16v3"/>
+          <path d="M9 20h6"/>
+          <path d="M12 4v16"/>
+        </svg>
+        Explain Selected Text
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div class="state-container hidden" id="loading-state">
+      <div class="loading-header">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Analyzing page...</p>
+        <p class="loading-subtext">This usually takes 3-5 seconds</p>
+      </div>
+      <div class="skeleton-container">
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-text"></div>
+        <div class="skeleton skeleton-text short"></div>
+        <div class="skeleton-card">
+          <div class="skeleton skeleton-card-title"></div>
+          <div class="skeleton skeleton-text"></div>
+          <div class="skeleton skeleton-text"></div>
+          <div class="skeleton skeleton-text short"></div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton skeleton-card-title"></div>
+          <div class="skeleton skeleton-text"></div>
+          <div class="skeleton skeleton-text short"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results State -->
+    <div class="state-container hidden" id="results-state">
+      <div class="results-footer">
+        <button class="btn btn-secondary btn-sm" id="back-home-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5"/>
+            <path d="M12 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn btn-secondary btn-sm" id="reanalyze-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 2v6h-6"/>
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+            <path d="M3 22v-6h6"/>
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+          </svg>
+          Re-analyze
+        </button>
+      </div>
+      <div class="results-header" id="results-header">
+        <!-- Populated by JS -->
+      </div>
+      <div class="results-fields" id="results-fields">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div class="state-container hidden" id="error-state">
+      <div class="error-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4"/>
+          <path d="M12 16h.01"/>
+        </svg>
+      </div>
+      <h3 class="error-title" id="error-title">Something went wrong</h3>
+      <p class="error-message" id="error-message">Unable to analyze this page. Please try again.</p>
+      <button class="btn btn-primary" id="retry-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 2v6h-6"/>
+          <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+          <path d="M3 22v-6h6"/>
+          <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+        </svg>
+        Try Again
+      </button>
+    </div>
+  </main>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
