@@ -8,7 +8,7 @@
  * - Listening for trigger messages from background script
  */
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://taxpilot-copilot.onrender.com';
 
 // ── DOM References ─────────────────────────────────────────
 
