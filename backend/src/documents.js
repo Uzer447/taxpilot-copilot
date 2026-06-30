@@ -122,9 +122,10 @@ export async function addDocument(sessionId, { filename, type, pdfBuffer }) {
   let pageCount = 0;
 
   try {
-    const pdfData = await pdfParse(pdfBuffer);
+    const parser = new pdfParse.PDFParse({ data: pdfBuffer });
+    const pdfData = await parser.getText();
     textContent = pdfData.text || '';
-    pageCount = pdfData.numpages || 0;
+    pageCount = pdfData.total || 0;
     console.log(`[Documents] Extracted ${textContent.length} chars from ${pageCount} pages: ${filename}`);
   } catch (parseError) {
     console.error(`[Documents] PDF parse error for ${filename}:`, parseError.message);
