@@ -2,6 +2,19 @@
 
 All notable changes to **TaxPilot Copilot** will be documented in this file.
 
+## [1.1.0] - V1: Personalized Tax Companion
+
+### 🚀 Features
+- **Document Upload:** You can now upload your Form 16 or Salary Slips directly into the side panel extension via a drag-and-drop interface before analyzing a page.
+- **Personalized Recommendations:** The copilot evolves from a generic explainer into a personalized assistant. It reads your uploaded documents and provides specific recommendations for form fields (e.g., "Based on your Form 16, enter ₹13,42,500 here").
+- **Confidence Badges:** Every AI recommendation now includes a confidence indicator (High, Medium, Low) and cites the exact source document it used to make the suggestion.
+- **Inconsistency Alerts:** The AI actively cross-references the values shown on the Income Tax portal against your uploaded documents. If it detects a mismatch, it throws a highly visible alert detailing the discrepancy.
+- **Missing Document Suggestions:** If the AI determines that additional documents (like Form 26AS) would improve its analysis, it suggests them at the bottom of the results.
+
+### ⚙️ Backend & Architecture
+- **In-Memory Session Store:** Implemented a backend session manager (`documents.js`) that handles document parsing (`pdf-parse`) and securely stores them in memory.
+- **Prompt Injection:** Completely overhauled the Gemini system prompts to dynamically inject document context and output structured JSON containing recommendations and inconsistencies.
+
 ## [1.0.0] - Initial Web Store Release
 
 ### 🚀 Features
