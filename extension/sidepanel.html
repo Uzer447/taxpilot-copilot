@@ -59,7 +59,62 @@
         </div>
       </div>
       <h2 class="welcome-title">Ready to help</h2>
-      <p class="welcome-subtitle">Click the button below to analyze the current page and get explanations for every field.</p>
+      <p class="welcome-subtitle">Upload your tax documents for personalized guidance, then analyze the page.</p>
+
+      <!-- Document Upload Section -->
+      <div class="documents-section" id="documents-section">
+        <div class="documents-header" id="documents-header">
+          <div class="documents-header-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <span>Your Documents</span>
+          </div>
+          <span class="documents-count" id="documents-count">0 uploaded</span>
+        </div>
+
+        <!-- Upload Area -->
+        <div class="upload-area" id="upload-area">
+          <div class="upload-dropzone" id="upload-dropzone">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="upload-text">Drop a PDF here or click to browse</p>
+            <p class="upload-hint">Form 16, Salary Slips • Max 5MB</p>
+            <input type="file" id="file-input" accept=".pdf,application/pdf" class="hidden">
+          </div>
+
+          <!-- Document Type Selector (shown after file is picked) -->
+          <div class="doc-type-selector hidden" id="doc-type-selector">
+            <p class="doc-type-label">What type of document is this?</p>
+            <div class="doc-type-buttons">
+              <button class="btn btn-doc-type" data-type="form16" id="type-form16">Form 16</button>
+              <button class="btn btn-doc-type" data-type="salary_slip" id="type-salary-slip">Salary Slip</button>
+            </div>
+            <button class="btn btn-text btn-cancel-upload" id="cancel-upload">Cancel</button>
+          </div>
+
+          <!-- Upload Progress -->
+          <div class="upload-progress hidden" id="upload-progress">
+            <div class="upload-progress-bar">
+              <div class="upload-progress-fill" id="upload-progress-fill"></div>
+            </div>
+            <p class="upload-progress-text" id="upload-progress-text">Uploading...</p>
+          </div>
+        </div>
+
+        <!-- Document List -->
+        <div class="document-list" id="document-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
       <button class="btn btn-primary" id="analyze-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"/>
@@ -82,7 +137,7 @@
       <div class="loading-header">
         <div class="loading-spinner"></div>
         <p class="loading-text">Analyzing page...</p>
-        <p class="loading-subtext">This usually takes 3-5 seconds</p>
+        <p class="loading-subtext" id="loading-subtext">This usually takes 3-5 seconds</p>
       </div>
       <div class="skeleton-container">
         <div class="skeleton skeleton-title"></div>
@@ -122,10 +177,22 @@
           Re-analyze
         </button>
       </div>
+      <!-- Document Summary Bar (shown in results) -->
+      <div class="doc-summary-bar hidden" id="doc-summary-bar">
+        <!-- Populated by JS -->
+      </div>
+      <!-- Inconsistencies Section -->
+      <div class="inconsistencies-section hidden" id="inconsistencies-section">
+        <!-- Populated by JS -->
+      </div>
       <div class="results-header" id="results-header">
         <!-- Populated by JS -->
       </div>
       <div class="results-fields" id="results-fields">
+        <!-- Populated by JS -->
+      </div>
+      <!-- Missing Documents Section -->
+      <div class="missing-docs-section hidden" id="missing-docs-section">
         <!-- Populated by JS -->
       </div>
     </div>

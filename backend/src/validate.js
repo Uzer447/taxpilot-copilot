@@ -22,6 +22,7 @@ export const explainPageSchema = z.object({
   domData: domDataSchema,
   pageTitle: z.string().optional().default('Unknown Page'),
   pageUrl: z.string().optional().default(''),
+  sessionId: z.string().optional(),
 });
 
 /**
@@ -33,7 +34,13 @@ export const explainSelectionSchema = z.object({
   pageTitle: z.string().optional().default('Unknown Page'),
   pageUrl: z.string().optional().default(''),
   screenshot: z.string().optional(),
+  sessionId: z.string().optional(),
 });
+
+/**
+ * Valid document types for upload.
+ */
+export const VALID_DOC_TYPES = ['form16', 'salary_slip'];
 
 /**
  * Middleware factory that validates request body against a Zod schema.

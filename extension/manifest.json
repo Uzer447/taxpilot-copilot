@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "TaxPilot Copilot",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AI-powered companion that explains every field on the Income Tax portal. Understand ITR forms without leaving your browser.",
 
   "permissions": [
     "activeTab",
     "sidePanel",
     "contextMenus",
-    "scripting"
+    "scripting",
+    "storage"
   ],
 
   "background": {
