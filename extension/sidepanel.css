@@ -1196,3 +1196,300 @@ body {
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
+
+/* ══════════════════════════════════════════════════════════
+   V2: Review Flow Styles
+   ══════════════════════════════════════════════════════════ */
+
+.action-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+}
+
+.btn-review {
+  background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+  border: none;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-review:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.btn-review:disabled {
+  background: var(--surface-overlay);
+  color: var(--text-tertiary);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Health Score Widget */
+.health-score-widget {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
+  backdrop-filter: blur(10px);
+}
+
+.health-score-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+}
+
+.health-ring {
+  position: relative;
+  width: 84px;
+  height: 84px;
+}
+
+.health-ring svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ring-bg {
+  stroke: var(--surface-overlay);
+}
+
+.ring-fill {
+  stroke: var(--color-primary);
+  transition: stroke-dashoffset 1s ease-out;
+}
+
+.health-good .ring-fill { stroke: var(--color-success); }
+.health-warning .ring-fill { stroke: var(--color-warning); }
+.health-critical .ring-fill { stroke: var(--color-error); }
+
+.health-score-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.health-good .health-score-value { color: var(--color-success); }
+.health-warning .health-score-value { color: var(--color-warning); }
+.health-critical .health-score-value { color: var(--color-error); }
+
+.health-score-text {
+  flex: 1;
+}
+
+.health-label {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+}
+
+.health-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Validation Summary Bar */
+.validation-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.val-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot-gray { background: var(--text-tertiary); }
+.dot-green { background: var(--color-success); }
+.dot-yellow { background: var(--color-warning); }
+.dot-red { background: var(--color-error); }
+
+/* Warnings Section */
+.warnings-section {
+  margin-bottom: var(--space-xl);
+}
+
+.section-title {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-md);
+  font-weight: 600;
+}
+
+.mt-4 {
+  margin-top: var(--space-xl);
+}
+
+.warning-card {
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  border-left-width: 4px;
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.warning-critical { border-left-color: var(--color-error); }
+.warning-warning { border-left-color: var(--color-warning); }
+.warning-suggestion { border-left-color: var(--color-info); }
+.warning-info { border-left-color: var(--text-tertiary); }
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.severity-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badge-critical { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+.badge-warning { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+.badge-suggestion { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
+.badge-info { background: rgba(107, 114, 128, 0.15); color: #d1d5db; }
+
+.warning-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.warning-body {
+  margin-bottom: var(--space-md);
+}
+
+.warning-message {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.warning-action {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.warning-evidence {
+  background: var(--surface-base);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.evidence-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-xs);
+}
+
+.evidence-item:last-child {
+  margin-bottom: 0;
+}
+
+.evidence-source {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.evidence-detail {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+/* Field Validations Override */
+.field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-sm);
+}
+
+.field-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.status-valid { color: var(--color-success); background: rgba(52, 211, 153, 0.1); }
+.status-warning { color: var(--color-warning); background: rgba(251, 191, 36, 0.1); }
+.status-critical { color: var(--color-error); background: rgba(239, 68, 68, 0.1); }
+.status-needs_review { color: var(--color-info); background: rgba(96, 165, 250, 0.1); }
+.status-empty { color: var(--text-tertiary); background: rgba(107, 114, 128, 0.1); }
+
+/* Tax Rules Section */
+.tax-rules-section {
+  margin-top: var(--space-2xl);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-lg);
+}
+
+.tax-rules-details summary {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+.tax-rules-details summary:hover {
+  color: var(--text-secondary);
+}
+
+.tax-rules-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+
+.tax-rule-tag {
+  font-size: 0.7rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border-radius: 12px;
+}

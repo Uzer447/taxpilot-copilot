@@ -9,7 +9,13 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { SYSTEM_PROMPT, buildPagePrompt, buildSelectionPrompt } from './prompt.js';
+import {
+  SYSTEM_PROMPT,
+  REVIEW_SYSTEM_PROMPT,
+  buildPagePrompt,
+  buildSelectionPrompt,
+  buildReviewPrompt,
+} from './prompt.js';
 
 let ai = null;
 
@@ -190,3 +196,123 @@ function parseGeminiResponse(response) {
     throw new Error('Failed to parse AI response. The model returned invalid JSON.');
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+// V2 — REVIEW PAGE
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Review an entire page: validate field values against documents + tax rules.
+ *
+ * @param {string} screenshot - Base64-encoded screenshot
+ * @param {object} domData - Extracted DOM data
+ * @param {string} pageTitle - Title of the current page
+ * @param {string} pageUrl - URL of the current page
+ * @param {string|null} documentContext - Extracted text from uploaded documents
+ * @param {string|null} taxRulesContext - Retrieved tax rules formatted for prompt
+ * @returns {object} Structured V2 review JSON
+ */
+export async function reviewPage({ screenshot, domData, pageTitle, pageUrl, documentContext, taxRulesContext }) {
+  const client = getClient();
+  const model = getModel();
+
+  const base64Data = screenshot.replace(/^data:image\/\w+;base64,/, '');
+
+  const userPrompt = buildReviewPrompt({ pageTitle, pageUrl, domData, documentContext, taxRulesContext });
+
+  const response = await generateWithFallback(client, {
+    model,
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: userPrompt },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: base64Data,
+            },
+          },
+        ],
+      },
+    ],
+    config: {
+      systemInstruction: REVIEW_SYSTEM_PROMPT,
+      responseMimeType: 'application/json',
+    },
+  });
+
+  return parseReviewResponse(response);
+}
+
+/**
+ * Parse and validate the Gemini response for the V2 review flow.
+ */
+function parseReviewResponse(response) {
+  const text = response.text;
+
+  if (!text) {
+    throw new Error('Empty response from Gemini API');
+  }
+
+  try {
+    const parsed = JSON.parse(text);
+
+    // Ensure required top-level fields with graceful defaults
+    parsed.pageTitle = parsed.pageTitle || 'Page Review';
+    parsed.reviewSummary = parsed.reviewSummary || 'Unable to generate review summary.';
+
+    // Health score defaults
+    if (!parsed.healthScore || typeof parsed.healthScore.score !== 'number') {
+      parsed.healthScore = {
+        score: 50,
+        label: 'Needs Review',
+        breakdown: {
+          validatedFields: 0,
+          warnings: 0,
+          suggestions: 0,
+          criticalIssues: 0,
+          totalFieldsReviewed: 0,
+        },
+      };
+    }
+
+    // Clamp score to 0-100
+    parsed.healthScore.score = Math.max(0, Math.min(100, parsed.healthScore.score));
+
+    // Ensure label matches score
+    const score = parsed.healthScore.score;
+    if (score >= 90) parsed.healthScore.label = 'Excellent';
+    else if (score >= 70) parsed.healthScore.label = 'Good';
+    else if (score >= 50) parsed.healthScore.label = 'Needs Review';
+    else parsed.healthScore.label = 'Critical Issues';
+
+    // Ensure breakdown exists
+    if (!parsed.healthScore.breakdown) {
+      parsed.healthScore.breakdown = {
+        validatedFields: 0,
+        warnings: 0,
+        suggestions: 0,
+        criticalIssues: 0,
+        totalFieldsReviewed: 0,
+      };
+    }
+
+    // Array defaults
+    if (!Array.isArray(parsed.warnings)) parsed.warnings = [];
+    if (!Array.isArray(parsed.fieldValidations)) parsed.fieldValidations = [];
+    if (!Array.isArray(parsed.missingDocuments)) parsed.missingDocuments = [];
+    if (!Array.isArray(parsed.taxRulesApplied)) parsed.taxRulesApplied = [];
+
+    // documentsSummary
+    if (typeof parsed.documentsSummary !== 'string') {
+      parsed.documentsSummary = null;
+    }
+
+    return parsed;
+  } catch (parseError) {
+    console.error('Failed to parse review response as JSON:', text.substring(0, 500));
+    throw new Error('Failed to parse AI review response. The model returned invalid JSON.');
+  }
+}
+

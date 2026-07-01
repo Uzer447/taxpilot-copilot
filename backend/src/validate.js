@@ -43,6 +43,18 @@ export const explainSelectionSchema = z.object({
 export const VALID_DOC_TYPES = ['form16', 'salary_slip'];
 
 /**
+ * Schema for the "Review Page" request (V2).
+ * sessionId is optional — review works without documents but with reduced effectiveness.
+ */
+export const reviewPageSchema = z.object({
+  screenshot: z.string().min(1, 'Screenshot is required'),
+  domData: domDataSchema,
+  pageTitle: z.string().optional().default('Unknown Page'),
+  pageUrl: z.string().optional().default(''),
+  sessionId: z.string().optional(),
+});
+
+/**
  * Middleware factory that validates request body against a Zod schema.
  */
 export function validateRequest(schema) {

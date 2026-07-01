@@ -16,8 +16,9 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import { validateRequest, explainPageSchema, explainSelectionSchema, VALID_DOC_TYPES } from './validate.js';
-import { explainPage, explainSelection } from './gemini.js';
+import { validateRequest, explainPageSchema, explainSelectionSchema, reviewPageSchema, VALID_DOC_TYPES } from './validate.js';
+import { explainPage, explainSelection, reviewPage } from './gemini.js';
+import { retrieveRelevantRules, formatRulesForPrompt, getRuleIds } from './retrieval.js';
 import {
   createSession,
   sessionExists,
@@ -67,7 +68,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'TaxPilot Copilot Backend',
-    version: '1.1.0',
+    version: '2.0.0',
     timestamp: new Date().toISOString(),
   });
 });
@@ -237,6 +238,54 @@ app.post('/api/explain-selection', validateRequest(explainSelectionSchema), asyn
   }
 });
 
+/**
+ * POST /api/review-page
+ *
+ * V2: Validates field values against uploaded documents AND tax rules.
+ * Returns health score, categorized warnings, field validations, and evidence.
+ */
+app.post('/api/review-page', validateRequest(reviewPageSchema), async (req, res, next) => {
+  try {
+    const { screenshot, domData, pageTitle, pageUrl, sessionId } = req.validatedBody;
+
+    // Retrieve document context if session exists
+    let documentContext = null;
+    if (sessionId && sessionExists(sessionId)) {
+      documentContext = getDocumentContext(sessionId);
+    }
+
+    // Run RAG retrieval for relevant tax rules
+    const { rules, retrievalTimeMs } = retrieveRelevantRules({ pageTitle, pageUrl, domData });
+    const taxRulesContext = formatRulesForPrompt(rules);
+    const ruleIds = getRuleIds(rules);
+
+    const hasDocuments = !!documentContext;
+    console.log(`[review-page] Reviewing: ${pageTitle} | Documents: ${hasDocuments ? 'YES' : 'NO'} | Rules: ${rules.length} (${retrievalTimeMs}ms)`);
+    const startTime = Date.now();
+
+    const result = await reviewPage({ screenshot, domData, pageTitle, pageUrl, documentContext, taxRulesContext });
+
+    const duration = Date.now() - startTime;
+    console.log(`[review-page] Completed in ${duration}ms — Health: ${result.healthScore?.score}/100, Warnings: ${result.warnings?.length || 0}`);
+
+    res.json({
+      success: true,
+      data: result,
+      meta: {
+        processingTimeMs: duration,
+        retrievalTimeMs,
+        rulesRetrieved: rules.length,
+        ruleIds,
+        hasDocuments,
+        fieldsReviewed: result.fieldValidations?.length || 0,
+        warningsCount: result.warnings?.length || 0,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ── Error Handling ─────────────────────────────────────────
 
 // Multer file size error
@@ -304,7 +353,7 @@ app.listen(PORT, () => {
   console.log(`
   ╔══════════════════════════════════════════╗
   ║       TaxPilot Copilot Backend           ║
-  ║                v1.1.0                    ║
+  ║                v2.0.0                    ║
   ║                                          ║
   ║   Server running on port ${PORT}            ║
   ║   Health: http://localhost:${PORT}/api/health ║

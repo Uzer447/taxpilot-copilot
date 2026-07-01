@@ -1,6 +1,25 @@
 # Changelog
 
-All notable changes to **TaxPilot Copilot** will be documented in this file.
+All notable changes to the TaxPilot Copilot extension and backend will be documented in this file.
+
+## [2.0.0] - 2024-11-20
+
+### Added
+- **AI-Powered Page Review**: Proactively reviews and validates user-entered information against official tax rules and uploaded documents.
+- **RAG Pipeline (Tax Knowledge Base)**: New, lightweight retrieval-augmented generation engine with ~60 curated Indian tax rules to ensure accuracy.
+- **Filing Health Score**: A new UI widget that calculates a health score (0-100) based on identified issues and successfully validated fields.
+- **Categorized Warnings**: Review findings are now grouped by severity (CRITICAL, WARNING, SUGGESTION, INFO).
+- **Evidence-Backed Recommendations**: Every suggestion cites specific sources (e.g., "Section 17(1)", "Form 16 Part B").
+- **New API Route (`/api/review-page`)**: Dedicated backend endpoint for the validation flow, separate from the `explain-page` flow.
+
+### Changed
+- The side panel now has a distinct "Review This Page" action, active only when documents are uploaded.
+- Updated extension manifest version to 2.0.0.
+
+### Fixed
+- Re-architected system prompts to strictly separate the "Explain" functionality (V1) from the "Review/Validate" functionality (V2).
+
+---
 
 ## [1.1.0] - V1: Personalized Tax Companion
 
