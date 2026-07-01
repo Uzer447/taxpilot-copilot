@@ -406,7 +406,7 @@ async function reviewPage() {
   showState('loading');
 
   // Update loading text
-  loadingSubtext.textContent = \`Reviewing with ${documents.length} document\${documents.length > 1 ? 's' : ''} and tax rules... This may take 5-7 seconds\`;
+  loadingSubtext.textContent = `Reviewing with ${documents.length} document${documents.length > 1 ? 's' : ''} and tax rules... This may take 5-7 seconds`;
 
   try {
     const tabInfo = await sendMessage({ action: 'get-active-tab' });
@@ -432,7 +432,7 @@ async function reviewPage() {
       requestBody.sessionId = sessionId;
     }
 
-    const response = await fetch(\`\${BACKEND_URL}/api/review-page\`, {
+    const response = await fetch(`${BACKEND_URL}/api/review-page`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
@@ -440,7 +440,7 @@ async function reviewPage() {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || \`Server error: \${response.status}\`);
+      throw new Error(errorData.message || errorData.error || `Server error: ${response.status}`);
     }
 
     const result = await response.json();
@@ -757,33 +757,33 @@ function renderReviewResults(data, meta) {
 
   // ── 1. Document Summary ──
   if (data.documentsSummary) {
-    docSummaryBar.innerHTML = \`
+    docSummaryBar.innerHTML = `
       <div class="doc-bar-icon">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
         </svg>
       </div>
-      <span>\${escapeHtml(data.documentsSummary)}</span>
-    \`;
+      <span>${escapeHtml(data.documentsSummary)}</span>
+    `;
     docSummaryBar.classList.remove('hidden');
   }
 
   // ── 2. Header & Review Summary ──
-  let headerHTML = \`
-    <h2 class="page-title">\${escapeHtml(data.pageTitle || 'Page Review')}</h2>
-    <p class="page-summary">\${escapeHtml(data.reviewSummary || '')}</p>
-  \`;
+  let headerHTML = `
+    <h2 class="page-title">${escapeHtml(data.pageTitle || 'Page Review')}</h2>
+    <p class="page-summary">${escapeHtml(data.reviewSummary || '')}</p>
+  `;
   
   if (meta) {
-    headerHTML += \`
+    headerHTML += `
       <div class="meta-info">
         <div class="meta-item">
           <span class="meta-dot"></span>
-          \${meta.processingTimeMs ? \`\${(meta.processingTimeMs / 1000).toFixed(1)}s\` : 'Done'}
+          ${meta.processingTimeMs ? `${(meta.processingTimeMs / 1000).toFixed(1)}s` : 'Done'}
         </div>
       </div>
-    \`;
+    `;
   }
   resultsHeader.innerHTML = headerHTML;
 
@@ -802,34 +802,34 @@ function renderReviewResults(data, meta) {
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (score / 100) * circumference;
 
-    healthScoreWidget.innerHTML = \`
-      <div class="health-score-container \${colorClass}">
+    healthScoreWidget.innerHTML = `
+      <div class="health-score-container ${colorClass}">
         <div class="health-ring">
           <svg width="84" height="84" viewBox="0 0 84 84">
-            <circle class="ring-bg" cx="42" cy="42" r="\${radius}" stroke-width="8" fill="none" />
-            <circle class="ring-fill" cx="42" cy="42" r="\${radius}" stroke-width="8" fill="none"
-              stroke-dasharray="\${circumference}" stroke-dashoffset="\${offset}"
+            <circle class="ring-bg" cx="42" cy="42" r="${radius}" stroke-width="8" fill="none" />
+            <circle class="ring-fill" cx="42" cy="42" r="${radius}" stroke-width="8" fill="none"
+              stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
               stroke-linecap="round" transform="rotate(-90 42 42)" />
           </svg>
-          <div class="health-score-value">\${score}</div>
+          <div class="health-score-value">${score}</div>
         </div>
         <div class="health-score-text">
-          <div class="health-label">\${escapeHtml(label)}</div>
+          <div class="health-label">${escapeHtml(label)}</div>
           <div class="health-subtitle">Filing Health Score</div>
         </div>
       </div>
-    \`;
+    `;
     healthScoreWidget.classList.remove('hidden');
     
     // Validation Summary Bar
     const b = data.healthScore.breakdown;
     if (b) {
-      validationSummaryBar.innerHTML = \`
-        <div class="val-stat stat-total"><span class="dot dot-gray"></span>\${b.totalFieldsReviewed} Reviewed</div>
-        <div class="val-stat stat-valid"><span class="dot dot-green"></span>\${b.validatedFields} Valid</div>
-        \${b.warnings > 0 ? \`<div class="val-stat stat-warn"><span class="dot dot-yellow"></span>\${b.warnings} Warnings</div>\` : ''}
-        \${b.criticalIssues > 0 ? \`<div class="val-stat stat-crit"><span class="dot dot-red"></span>\${b.criticalIssues} Critical</div>\` : ''}
-      \`;
+      validationSummaryBar.innerHTML = `
+        <div class="val-stat stat-total"><span class="dot dot-gray"></span>${b.totalFieldsReviewed} Reviewed</div>
+        <div class="val-stat stat-valid"><span class="dot dot-green"></span>${b.validatedFields} Valid</div>
+        ${b.warnings > 0 ? `<div class="val-stat stat-warn"><span class="dot dot-yellow"></span>${b.warnings} Warnings</div>` : ''}
+        ${b.criticalIssues > 0 ? `<div class="val-stat stat-crit"><span class="dot dot-red"></span>${b.criticalIssues} Critical</div>` : ''}
+      `;
       validationSummaryBar.classList.remove('hidden');
     }
   }
@@ -841,31 +841,31 @@ function renderReviewResults(data, meta) {
     data.warnings.forEach(warn => {
       const severity = (warn.severity || 'INFO').toUpperCase();
       
-      warningsHTML += \`
-        <div class="warning-card warning-\${severity.toLowerCase()}">
+      warningsHTML += `
+        <div class="warning-card warning-${severity.toLowerCase()}">
           <div class="warning-header">
-            <span class="severity-badge badge-\${severity.toLowerCase()}">\${severity}</span>
-            <span class="warning-title">\${escapeHtml(warn.title)}</span>
+            <span class="severity-badge badge-${severity.toLowerCase()}">${severity}</span>
+            <span class="warning-title">${escapeHtml(warn.title)}</span>
           </div>
           <div class="warning-body">
-            <p class="warning-message">\${escapeHtml(warn.message)}</p>
-            \${warn.suggestedAction ? \`<p class="warning-action"><strong>Action:</strong> \${escapeHtml(warn.suggestedAction)}</p>\` : ''}
+            <p class="warning-message">${escapeHtml(warn.message)}</p>
+            ${warn.suggestedAction ? `<p class="warning-action"><strong>Action:</strong> ${escapeHtml(warn.suggestedAction)}</p>` : ''}
           </div>
-      \`;
+      `;
       
       if (warn.evidence && warn.evidence.length > 0) {
-        warningsHTML += \`<div class="warning-evidence">\`;
+        warningsHTML += `<div class="warning-evidence">`;
         warn.evidence.forEach(ev => {
-          warningsHTML += \`
+          warningsHTML += `
             <div class="evidence-item">
-              <span class="evidence-source">\${escapeHtml(ev.source)}</span>
-              <span class="evidence-detail">\${escapeHtml(ev.detail)}</span>
+              <span class="evidence-source">${escapeHtml(ev.source)}</span>
+              <span class="evidence-detail">${escapeHtml(ev.detail)}</span>
             </div>
-          \`;
+          `;
         });
-        warningsHTML += \`</div>\`;
+        warningsHTML += `</div>`;
       }
-      warningsHTML += \`</div>\`;
+      warningsHTML += `</div>`;
     });
     
     warningsSection.innerHTML = warningsHTML;
@@ -878,7 +878,7 @@ function renderReviewResults(data, meta) {
     
     data.fieldValidations.forEach(field => {
       const status = (field.status || 'VALID').toUpperCase();
-      const statusClass = \`status-\${status.toLowerCase()}\`;
+      const statusClass = `status-${status.toLowerCase()}`;
       
       let statusIcon = '';
       if (status === 'VALID') statusIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
@@ -886,38 +886,38 @@ function renderReviewResults(data, meta) {
       else if (status === 'CRITICAL') statusIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
       else statusIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 
-      fieldsHTML += \`
+      fieldsHTML += `
         <div class="field-card">
           <div class="field-header">
-            <div class="field-name">\${escapeHtml(field.name || 'Unknown Field')}</div>
-            <div class="field-status \${statusClass}">
-              \${statusIcon} \${status.replace('_', ' ')}
+            <div class="field-name">${escapeHtml(field.name || 'Unknown Field')}</div>
+            <div class="field-status ${statusClass}">
+              ${statusIcon} ${status.replace('_', ' ')}
             </div>
           </div>
-      \`;
+      `;
 
       if (field.currentValue) {
-        fieldsHTML += \`
+        fieldsHTML += `
           <div class="field-detail" data-type="selected">
             <span class="field-detail-label">Portal Value</span>
-            <span class="field-detail-value font-mono font-bold">\${escapeHtml(field.currentValue)}</span>
+            <span class="field-detail-value font-mono font-bold">${escapeHtml(field.currentValue)}</span>
           </div>
-        \`;
+        `;
       }
 
       if (field.recommendation && field.recommendation.suggestedAction) {
         const rec = field.recommendation;
         const conf = (rec.confidence || 'MEDIUM').toUpperCase();
-        fieldsHTML += \`
-          <div class="field-recommendation confidence-\${conf.toLowerCase()}">
-            <p class="recommendation-text">\${escapeHtml(rec.suggestedAction)}</p>
-            \${rec.reasoning ? \`<p class="recommendation-reasoning">\${escapeHtml(rec.reasoning)}</p>\` : ''}
-            \${rec.sources && rec.sources.length ? \`<p class="recommendation-source">Sources: \${escapeHtml(rec.sources.join(', '))}</p>\` : ''}
+        fieldsHTML += `
+          <div class="field-recommendation confidence-${conf.toLowerCase()}">
+            <p class="recommendation-text">${escapeHtml(rec.suggestedAction)}</p>
+            ${rec.reasoning ? `<p class="recommendation-reasoning">${escapeHtml(rec.reasoning)}</p>` : ''}
+            ${rec.sources && rec.sources.length ? `<p class="recommendation-source">Sources: ${escapeHtml(rec.sources.join(', '))}</p>` : ''}
           </div>
-        \`;
+        `;
       }
 
-      fieldsHTML += \`</div>\`;
+      fieldsHTML += `</div>`;
     });
     
     resultsFields.innerHTML = fieldsHTML;
@@ -929,7 +929,7 @@ function renderReviewResults(data, meta) {
 
   // ── 6. Missing Documents ──
   if (data.missingDocuments && data.missingDocuments.length > 0) {
-    let missingHTML = \`
+    let missingHTML = `
       <div class="missing-docs-header">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/>
@@ -938,15 +938,15 @@ function renderReviewResults(data, meta) {
         </svg>
         <span>Additional Documents That May Help</span>
       </div>
-    \`;
+    `;
 
     data.missingDocuments.forEach(doc => {
-      missingHTML += \`
+      missingHTML += `
         <div class="missing-doc-item">
-          <span class="missing-doc-name">\${escapeHtml(doc.document)}</span>
-          <span class="missing-doc-reason">\${escapeHtml(doc.reason)}</span>
+          <span class="missing-doc-name">${escapeHtml(doc.document)}</span>
+          <span class="missing-doc-reason">${escapeHtml(doc.reason)}</span>
         </div>
-      \`;
+      `;
     });
 
     missingDocsSection.innerHTML = missingHTML;
@@ -955,14 +955,14 @@ function renderReviewResults(data, meta) {
 
   // ── 7. Tax Rules Applied ──
   if (data.taxRulesApplied && data.taxRulesApplied.length > 0) {
-    taxRulesSection.innerHTML = \`
+    taxRulesSection.innerHTML = `
       <details class="tax-rules-details">
-        <summary>Tax rules applied (\${data.taxRulesApplied.length})</summary>
+        <summary>Tax rules applied (${data.taxRulesApplied.length})</summary>
         <div class="tax-rules-list">
-          \${data.taxRulesApplied.map(r => \`<span class="tax-rule-tag">\${escapeHtml(r)}</span>\`).join('')}
+          ${data.taxRulesApplied.map(r => `<span class="tax-rule-tag">${escapeHtml(r)}</span>`).join('')}
         </div>
       </details>
-    \`;
+    `;
     taxRulesSection.classList.remove('hidden');
   }
 
