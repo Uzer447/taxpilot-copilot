@@ -59,7 +59,7 @@ const upload = multer({
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests from Chrome extensions and no-origin (e.g., curl)
-    if (!origin || origin.startsWith('chrome-extension://') || origin.startsWith('http://localhost')) {
+    if (!origin || origin.startsWith('chrome-extension://') || origin.startsWith('http://localhost') || origin.endsWith('.onrender.com')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
