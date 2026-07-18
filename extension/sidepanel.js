@@ -9,7 +9,7 @@
  * - Loading Timelines
  */
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://taxpilot-copilot.onrender.com';
 
 // ── DOM References ─────────────────────────────────────────
 
@@ -186,34 +186,67 @@ async function handleLogout() {
   showLoggedOutState();
 }
 
+// ── API Helper ─────────────────────────────────────────────
+
+async function apiFetch(path, options = {}) {
+  const { jwt_token } = await chrome.storage.local.get('jwt_token');
+  const headers = { ...options.headers };
+  
+  if (jwt_token) {
+    headers['Authorization'] = `Bearer ${jwt_token}`;
+  }
+  
+  return fetch(`${BACKEND_URL}${path}`, {
+    ...options,
+    headers
+  });
+}
+
 // ── Session Management ─────────────────────────────────────
 
 async function initSession() {
-  try {
-    const stored = await chrome.storage.local.get('taxpilot_session_id');
-    if (stored.taxpilot_session_id) {
-      sessionId = stored.taxpilot_session_id;
-      const res = await fetch(`${BACKEND_URL}/api/documents/${sessionId}`);
+  const { jwt_token } = await chrome.storage.local.get('jwt_token');
+  
+  if (jwt_token) {
+    // Authenticated flow: Fetch documents from platform
+    try {
+      const res = await apiFetch('/api/platform/documents');
       const data = await res.json();
-      if (data.sessionValid) {
+      if (data.success) {
         documents = data.documents || [];
         renderDocumentList();
-        return;
       }
+    } catch (e) {
+      console.error('[TaxPilot] Failed to fetch platform documents:', e);
     }
-  } catch (e) {}
+  } else {
+    // Unauthenticated flow: Use local session
+    try {
+      const stored = await chrome.storage.local.get('taxpilot_session_id');
+      if (stored.taxpilot_session_id) {
+        sessionId = stored.taxpilot_session_id;
+        const res = await apiFetch(`/api/documents/${sessionId}`);
+        const data = await res.json();
+        if (data.sessionValid) {
+          documents = data.documents || [];
+          renderDocumentList();
+          return;
+        }
+      }
+    } catch (e) {}
 
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/documents/session`, { method: 'POST' });
-    const data = await res.json();
-    if (data.success) {
-      sessionId = data.sessionId;
-      await chrome.storage.local.set({ taxpilot_session_id: sessionId });
-      documents = [];
-      renderDocumentList();
+    try {
+      const res = await apiFetch('/api/documents/session', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        sessionId = data.sessionId;
+        await chrome.storage.local.set({ taxpilot_session_id: sessionId });
+        documents = [];
+        renderDocumentList();
+      }
+    } catch (e) {
+      console.error('[TaxPilot] Failed to create session:', e);
     }
-  } catch (e) {
-    console.error('[TaxPilot] Failed to create session:', e);
   }
 }
 
@@ -247,7 +280,11 @@ async function uploadDocument(type) {
     formData.append('sessionId', sessionId);
     formData.append('type', type);
 
-    const res = await fetch(`${BACKEND_URL}/api/documents/upload`, {
+    const { jwt_token } = await chrome.storage.local.get('jwt_token');
+    const uploadPath = jwt_token ? '/api/platform/documents/upload' : '/api/documents/upload';
+    
+    // Do not set Content-Type header when sending FormData!
+    const res = await apiFetch(uploadPath, {
       method: 'POST',
       body: formData,
     });
@@ -272,9 +309,14 @@ async function uploadDocument(type) {
 }
 
 async function removeDocument(documentId) {
-  if (!sessionId) return;
   try {
-    await fetch(`${BACKEND_URL}/api/documents/${sessionId}/${documentId}`, { method: 'DELETE' });
+    const { jwt_token } = await chrome.storage.local.get('jwt_token');
+    if (jwt_token) {
+      await apiFetch(`/api/platform/documents/${documentId}`, { method: 'DELETE' });
+    } else {
+      if (!sessionId) return;
+      await apiFetch(`/api/documents/${sessionId}/${documentId}`, { method: 'DELETE' });
+    }
     documents = documents.filter(d => d.id !== documentId);
     renderDocumentList();
   } catch (error) {}
@@ -459,7 +501,7 @@ async function reviewPage() {
     };
     if (sessionId) requestBody.sessionId = sessionId;
 
-    const response = await fetch(`${BACKEND_URL}/api/review-page`, {
+    const response = await apiFetch('/api/review-page', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
@@ -505,7 +547,7 @@ async function explainSelection() {
     };
     if (sessionId) requestBody.sessionId = sessionId;
 
-    const response = await fetch(`${BACKEND_URL}/api/explain-selection`, {
+    const response = await apiFetch('/api/explain-selection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
@@ -535,7 +577,7 @@ async function explainSelectionFromContext(data) {
     };
     if (sessionId) requestBody.sessionId = sessionId;
 
-    const response = await fetch(`${BACKEND_URL}/api/explain-selection`, {
+    const response = await apiFetch('/api/explain-selection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),

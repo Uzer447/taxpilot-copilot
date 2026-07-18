@@ -272,7 +272,7 @@ async function handleTriggerSync() {
     });
 
     // 3. Send to Backend
-    const backendUrl = 'http://localhost:3000/api/extension/context'; // For local dev
+    const backendUrl = 'https://taxpilot-copilot.onrender.com/api/extension/context'; // For production
     const res = await fetch(backendUrl, {
       method: 'POST',
       headers: {

@@ -20,6 +20,8 @@ import multer from 'multer';
 import { validateRequest, explainPageSchema, explainSelectionSchema, reviewPageSchema, VALID_DOC_TYPES } from './validate.js';
 import { explainPage, explainSelection, reviewPage } from './gemini.js';
 import { retrieveRelevantRules, formatRulesForPrompt, getRuleIds } from './retrieval.js';
+import prisma from './shared/db.js';
+import { optionalAuth } from './auth/authMiddleware.js';
 import {
   createSession,
   sessionExists,
@@ -189,7 +191,7 @@ app.delete('/api/documents/:sessionId/:documentId', (req, res, next) => {
  * explanations for every visible field on the page.
  * Optionally includes document context if sessionId is provided.
  */
-app.post('/api/explain-page', validateRequest(explainPageSchema), async (req, res, next) => {
+app.post('/api/explain-page', optionalAuth, validateRequest(explainPageSchema), async (req, res, next) => {
   try {
     const { screenshot, domData, pageTitle, pageUrl, sessionId } = req.validatedBody;
 
@@ -197,6 +199,14 @@ app.post('/api/explain-page', validateRequest(explainPageSchema), async (req, re
     let documentContext = null;
     if (sessionId && sessionExists(sessionId)) {
       documentContext = getDocumentContext(sessionId);
+    }
+
+    if (req.user) {
+      const platformDocs = await prisma.document.findMany({ where: { userId: req.user.userId } });
+      if (platformDocs.length > 0) {
+        const platformDocsText = platformDocs.map(d => `--- Document: ${d.name} ---\n${d.extractedText || ''}`).join('\n\n');
+        documentContext = documentContext ? `${documentContext}\n\n${platformDocsText}` : platformDocsText;
+      }
     }
 
     const hasDocuments = !!documentContext;
@@ -231,7 +241,7 @@ app.post('/api/explain-page', validateRequest(explainPageSchema), async (req, re
  * Accepts selected text and page context, returns a
  * detailed explanation of the selected field/text.
  */
-app.post('/api/explain-selection', validateRequest(explainSelectionSchema), async (req, res, next) => {
+app.post('/api/explain-selection', optionalAuth, validateRequest(explainSelectionSchema), async (req, res, next) => {
   try {
     const { selectedText, domData, pageTitle, pageUrl, screenshot, sessionId } = req.validatedBody;
 
@@ -239,6 +249,14 @@ app.post('/api/explain-selection', validateRequest(explainSelectionSchema), asyn
     let documentContext = null;
     if (sessionId && sessionExists(sessionId)) {
       documentContext = getDocumentContext(sessionId);
+    }
+
+    if (req.user) {
+      const platformDocs = await prisma.document.findMany({ where: { userId: req.user.userId } });
+      if (platformDocs.length > 0) {
+        const platformDocsText = platformDocs.map(d => `--- Document: ${d.name} ---\n${d.extractedText || ''}`).join('\n\n');
+        documentContext = documentContext ? `${documentContext}\n\n${platformDocsText}` : platformDocsText;
+      }
     }
 
     console.log(`[explain-selection] Explaining: "${selectedText.substring(0, 50)}..." on ${pageTitle}`);
@@ -271,7 +289,7 @@ app.post('/api/explain-selection', validateRequest(explainSelectionSchema), asyn
  * V2: Validates field values against uploaded documents AND tax rules.
  * Returns health score, categorized warnings, field validations, and evidence.
  */
-app.post('/api/review-page', validateRequest(reviewPageSchema), async (req, res, next) => {
+app.post('/api/review-page', optionalAuth, validateRequest(reviewPageSchema), async (req, res, next) => {
   try {
     const { screenshot, domData, pageTitle, pageUrl, sessionId } = req.validatedBody;
 
@@ -279,6 +297,14 @@ app.post('/api/review-page', validateRequest(reviewPageSchema), async (req, res,
     let documentContext = null;
     if (sessionId && sessionExists(sessionId)) {
       documentContext = getDocumentContext(sessionId);
+    }
+
+    if (req.user) {
+      const platformDocs = await prisma.document.findMany({ where: { userId: req.user.userId } });
+      if (platformDocs.length > 0) {
+        const platformDocsText = platformDocs.map(d => `--- Document: ${d.name} ---\n${d.extractedText || ''}`).join('\n\n');
+        documentContext = documentContext ? `${documentContext}\n\n${platformDocsText}` : platformDocsText;
+      }
     }
 
     // Run RAG retrieval for relevant tax rules
