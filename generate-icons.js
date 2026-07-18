@@ -124,10 +124,10 @@ function adler32(buf) {
   return ((b << 16) | a) >>> 0;
 }
 
-// Generate icons: Indigo color (#6366f1 = r:99, g:102, b:241)
+// Generate icons: Emerald Green (#059669 = r:5, g:150, b:105)
 const sizes = [16, 48, 128];
 sizes.forEach(size => {
-  const png = createPNG(size, 99, 102, 241);
+  const png = createPNG(size, 5, 150, 105);
   writeFileSync(`extension/icons/icon${size}.png`, png);
   console.log(`Created icon${size}.png (${png.length} bytes)`);
 });

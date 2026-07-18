@@ -316,3 +316,48 @@ function parseReviewResponse(response) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// V3 — CONVERSATIONAL COPILOT (WEB PLATFORM)
+// ═══════════════════════════════════════════════════════════
+
+export async function chatWithCopilot({ message, documentContext, liveContext, history }) {
+  const client = getClient();
+  const model = getModel();
+
+  const { buildChatPrompt, CONVERSATIONAL_SYSTEM_PROMPT } = await import('./prompt.js');
+  const userPrompt = buildChatPrompt({ message, documentContext, liveContext });
+
+  const parts = [{ text: userPrompt }];
+
+  if (liveContext && liveContext.screenshot) {
+    const base64Data = liveContext.screenshot.replace(/^data:image\/\w+;base64,/, '');
+    parts.push({
+      inlineData: {
+        mimeType: 'image/jpeg',
+        data: base64Data,
+      },
+    });
+  }
+
+  // Convert history format to Gemini format
+  const contents = (history || []).map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }]
+  }));
+  
+  contents.push({
+    role: 'user',
+    parts,
+  });
+
+  const response = await generateWithFallback(client, {
+    model,
+    contents,
+    config: {
+      systemInstruction: CONVERSATIONAL_SYSTEM_PROMPT,
+      // No strict JSON parsing for the conversational bot, it returns plain markdown text
+    },
+  });
+
+  return response.text;
+}

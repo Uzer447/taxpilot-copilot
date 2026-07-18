@@ -1,16 +1,15 @@
 /**
- * TaxPilot Copilot — Side Panel Logic (V1)
+ * TaxPilot Copilot — Side Panel Logic (V2.5)
  *
  * Handles:
- * - Document upload, listing, and removal
- * - Session management via chrome.storage.local
- * - Analyze button click → capture screenshot + DOM → send to backend
- * - Explain selection → get selected text → send to backend
- * - Rendering results with V1 fields (recommendations, inconsistencies, missing docs)
- * - Loading, error, and results states
+ * - Native Auth (Login/Logout)
+ * - Navigation tabs (Overview, Review, Documents)
+ * - Session & Document management
+ * - Page Review and Explanation
+ * - Loading Timelines
  */
 
-const BACKEND_URL = 'https://taxpilot-copilot.onrender.com';
+const BACKEND_URL = 'http://localhost:3000';
 
 // ── DOM References ─────────────────────────────────────────
 
@@ -19,19 +18,41 @@ const loadingState = document.getElementById('loading-state');
 const resultsState = document.getElementById('results-state');
 const errorState = document.getElementById('error-state');
 
-const analyzeBtn = document.getElementById('analyze-btn');
+// Auth DOM
+const loginFormContainer = document.getElementById('login-form-container');
+const loggedInContainer = document.getElementById('logged-in-container');
+const authEmail = document.getElementById('auth-email');
+const authPassword = document.getElementById('auth-password');
+const authLoginBtn = document.getElementById('auth-login-btn');
+const authErrorMsg = document.getElementById('auth-error-msg');
+const loggedInEmail = document.getElementById('logged-in-email');
+const authLogoutBtn = document.getElementById('auth-logout-btn');
+const triggerSyncBtn = document.getElementById('trigger-sync-btn');
+
+// Navigation Tabs
+const tabOverview = document.getElementById('tab-overview');
+const tabReview = document.getElementById('tab-review');
+const tabDocuments = document.getElementById('tab-documents');
+
+// Actions
 const reviewBtn = document.getElementById('review-btn');
 const explainSelectionBtn = document.getElementById('explain-selection-btn');
 const reanalyzeBtn = document.getElementById('reanalyze-btn');
 const backHomeBtn = document.getElementById('back-home-btn');
 const retryBtn = document.getElementById('retry-btn');
 
+// Results DOM
 const resultsHeader = document.getElementById('results-header');
+const healthScoreWidget = document.getElementById('health-score-widget');
+const validationSummaryBar = document.getElementById('validation-summary-bar');
+const warningsSection = document.getElementById('warnings-section');
 const resultsFields = document.getElementById('results-fields');
+const missingDocsSection = document.getElementById('missing-docs-section');
+const taxRulesSection = document.getElementById('tax-rules-section');
 const errorTitle = document.getElementById('error-title');
 const errorMessage = document.getElementById('error-message');
 
-// Document UI elements
+// Documents DOM
 const documentsSection = document.getElementById('documents-section');
 const documentsCount = document.getElementById('documents-count');
 const uploadDropzone = document.getElementById('upload-dropzone');
@@ -41,30 +62,22 @@ const cancelUploadBtn = document.getElementById('cancel-upload');
 const uploadProgress = document.getElementById('upload-progress');
 const uploadProgressText = document.getElementById('upload-progress-text');
 const documentList = document.getElementById('document-list');
-const loadingSubtext = document.getElementById('loading-subtext');
 
-// Results V1 elements
-const docSummaryBar = document.getElementById('doc-summary-bar');
-const inconsistenciesSection = document.getElementById('inconsistencies-section');
-const missingDocsSection = document.getElementById('missing-docs-section');
-
-// Results V2 elements
-const healthScoreWidget = document.getElementById('health-score-widget');
-const validationSummaryBar = document.getElementById('validation-summary-bar');
-const warningsSection = document.getElementById('warnings-section');
-const taxRulesSection = document.getElementById('tax-rules-section');
+// Loading Timeline
+const loadingTimeline = document.getElementById('loading-timeline');
 
 // ── State ──────────────────────────────────────────────────
 
 let sessionId = null;
 let documents = [];
 let pendingFile = null;
+let currentTab = 'overview'; // 'overview', 'review', 'documents'
 
 // ── State Management ───────────────────────────────────────
 
 function showState(stateName) {
   [welcomeState, loadingState, resultsState, errorState].forEach(el => {
-    el.classList.add('hidden');
+    if (el) el.classList.add('hidden');
   });
 
   const stateMap = {
@@ -74,22 +87,112 @@ function showState(stateName) {
     error: errorState,
   };
 
-  if (stateMap[stateName]) {
+  if (stateMap[stateName] && stateMap[stateName]) {
     stateMap[stateName].classList.remove('hidden');
   }
 }
 
+function switchTab(tabName) {
+  currentTab = tabName;
+  [tabOverview, tabReview, tabDocuments].forEach(el => el.classList.remove('active'));
+  
+  // Hide all sections in welcome state
+  if (documentsSection) documentsSection.classList.add('hidden');
+  
+  if (tabName === 'overview') {
+    tabOverview.classList.add('active');
+    showState('welcome');
+  } else if (tabName === 'review') {
+    tabReview.classList.add('active');
+    // Keep results open if we have them, else show overview but focused on actions
+    if (resultsHeader.innerHTML !== '') {
+      showState('results');
+    } else {
+      showState('welcome');
+    }
+  } else if (tabName === 'documents') {
+    tabDocuments.classList.add('active');
+    showState('welcome');
+    if (documentsSection) documentsSection.classList.remove('hidden');
+  }
+}
+
+// ── Auth Management ────────────────────────────────────────
+
+async function initAuth() {
+  const data = await chrome.storage.local.get(['jwt_token', 'user_email']);
+  if (data.jwt_token) {
+    showLoggedInState(data.user_email);
+  } else {
+    showLoggedOutState();
+  }
+}
+
+function showLoggedInState(email) {
+  loginFormContainer.classList.add('hidden');
+  loggedInContainer.classList.remove('hidden');
+  loggedInEmail.textContent = email || 'User';
+}
+
+function showLoggedOutState() {
+  loggedInContainer.classList.add('hidden');
+  loginFormContainer.classList.remove('hidden');
+  authErrorMsg.classList.add('hidden');
+  authPassword.value = '';
+}
+
+async function handleLogin() {
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  
+  if (!email || !password) {
+    authErrorMsg.textContent = 'Please enter email and password';
+    authErrorMsg.classList.remove('hidden');
+    return;
+  }
+  
+  authLoginBtn.disabled = true;
+  authLoginBtn.textContent = 'Logging in...';
+  authErrorMsg.classList.add('hidden');
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+      await chrome.storage.local.set({ 
+        jwt_token: data.token,
+        user_email: data.user.email 
+      });
+      showLoggedInState(data.user.email);
+    } else {
+      throw new Error(data.message || 'Login failed');
+    }
+  } catch (err) {
+    authErrorMsg.textContent = err.message;
+    authErrorMsg.classList.remove('hidden');
+  } finally {
+    authLoginBtn.disabled = false;
+    authLoginBtn.textContent = 'Log In';
+  }
+}
+
+async function handleLogout() {
+  await chrome.storage.local.remove(['jwt_token', 'user_email']);
+  showLoggedOutState();
+}
+
 // ── Session Management ─────────────────────────────────────
 
-/**
- * Initialize or restore the session.
- */
 async function initSession() {
   try {
     const stored = await chrome.storage.local.get('taxpilot_session_id');
     if (stored.taxpilot_session_id) {
       sessionId = stored.taxpilot_session_id;
-      // Verify session is still valid on the server
       const res = await fetch(`${BACKEND_URL}/api/documents/${sessionId}`);
       const data = await res.json();
       if (data.sessionValid) {
@@ -98,11 +201,8 @@ async function initSession() {
         return;
       }
     }
-  } catch (e) {
-    console.log('[TaxPilot] Could not restore session, creating new one');
-  }
+  } catch (e) {}
 
-  // Create new session
   try {
     const res = await fetch(`${BACKEND_URL}/api/documents/session`, { method: 'POST' });
     const data = await res.json();
@@ -114,41 +214,29 @@ async function initSession() {
     }
   } catch (e) {
     console.error('[TaxPilot] Failed to create session:', e);
-    // Extension still works without session (V0 mode)
   }
 }
 
 // ── Document Upload ────────────────────────────────────────
 
-/**
- * Handle file selection (from input or drag-and-drop).
- */
 function handleFileSelected(file) {
   if (!file) return;
-
   if (file.type !== 'application/pdf') {
     showUploadError('Only PDF files are supported.');
     return;
   }
-
   if (file.size > 5 * 1024 * 1024) {
     showUploadError('File is too large. Maximum size is 5MB.');
     return;
   }
 
   pendingFile = file;
-  // Show type selector
   docTypeSelector.classList.remove('hidden');
   uploadDropzone.classList.add('hidden');
 }
 
-/**
- * Upload the pending file with the selected type.
- */
 async function uploadDocument(type) {
   if (!pendingFile || !sessionId) return;
-
-  // Hide type selector, show progress
   docTypeSelector.classList.add('hidden');
   uploadProgress.classList.remove('hidden');
   uploadProgressText.textContent = `Uploading ${pendingFile.name}...`;
@@ -163,56 +251,35 @@ async function uploadDocument(type) {
       method: 'POST',
       body: formData,
     });
-
     const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Upload failed');
 
-    if (!data.success) {
-      throw new Error(data.error || 'Upload failed');
-    }
-
-    // Add to local list
     documents.push(data.document);
     renderDocumentList();
     uploadProgressText.textContent = 'Upload complete!';
-
     setTimeout(() => {
       uploadProgress.classList.add('hidden');
       uploadDropzone.classList.remove('hidden');
     }, 1000);
-
   } catch (error) {
-    console.error('[TaxPilot] Upload error:', error);
     uploadProgressText.textContent = `Error: ${error.message}`;
     setTimeout(() => {
       uploadProgress.classList.add('hidden');
       uploadDropzone.classList.remove('hidden');
     }, 2000);
   }
-
   pendingFile = null;
 }
 
-/**
- * Remove a document from the session.
- */
 async function removeDocument(documentId) {
   if (!sessionId) return;
-
   try {
-    await fetch(`${BACKEND_URL}/api/documents/${sessionId}/${documentId}`, {
-      method: 'DELETE',
-    });
-
+    await fetch(`${BACKEND_URL}/api/documents/${sessionId}/${documentId}`, { method: 'DELETE' });
     documents = documents.filter(d => d.id !== documentId);
     renderDocumentList();
-  } catch (error) {
-    console.error('[TaxPilot] Remove error:', error);
-  }
+  } catch (error) {}
 }
 
-/**
- * Show a brief error in the upload area.
- */
 function showUploadError(message) {
   uploadProgressText.textContent = message;
   uploadProgress.classList.remove('hidden');
@@ -223,13 +290,8 @@ function showUploadError(message) {
   }, 2000);
 }
 
-/**
- * Render the document list in the UI.
- */
 function renderDocumentList() {
-  documentsCount.textContent = documents.length === 0
-    ? '0 uploaded'
-    : `${documents.length} uploaded`;
+  documentsCount.textContent = documents.length === 0 ? '0 uploaded' : `${documents.length} uploaded`;
 
   if (documents.length > 0) {
     reviewBtn.removeAttribute('disabled');
@@ -274,7 +336,6 @@ function renderDocumentList() {
   }
   documentList.innerHTML = html;
 
-  // Attach remove handlers
   documentList.querySelectorAll('.document-remove-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -285,46 +346,55 @@ function renderDocumentList() {
 
 // ── Event Listeners ────────────────────────────────────────
 
-analyzeBtn.addEventListener('click', () => analyzePage());
-reviewBtn.addEventListener('click', () => reviewPage());
-reanalyzeBtn.addEventListener('click', () => analyzePage());
-backHomeBtn.addEventListener('click', () => showState('welcome'));
-retryBtn.addEventListener('click', () => showState('welcome'));
-explainSelectionBtn.addEventListener('click', () => explainSelection());
+// Auth
+if (authLoginBtn) authLoginBtn.addEventListener('click', handleLogin);
+if (authLogoutBtn) authLogoutBtn.addEventListener('click', handleLogout);
+if (triggerSyncBtn) {
+  triggerSyncBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'trigger_sync' });
+    triggerSyncBtn.textContent = 'Synced!';
+    setTimeout(() => triggerSyncBtn.textContent = 'Sync Now', 2000);
+  });
+}
 
-// File upload events
-uploadDropzone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', (e) => handleFileSelected(e.target.files[0]));
+// Navigation
+if (tabOverview) tabOverview.addEventListener('click', () => switchTab('overview'));
+if (tabReview) tabReview.addEventListener('click', () => switchTab('review'));
+if (tabDocuments) tabDocuments.addEventListener('click', () => switchTab('documents'));
 
-// Drag and drop
-uploadDropzone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  uploadDropzone.classList.add('dragover');
-});
-uploadDropzone.addEventListener('dragleave', () => {
-  uploadDropzone.classList.remove('dragover');
-});
-uploadDropzone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  uploadDropzone.classList.remove('dragover');
-  handleFileSelected(e.dataTransfer.files[0]);
-});
+// Actions
+if (reviewBtn) reviewBtn.addEventListener('click', () => reviewPage());
+if (reanalyzeBtn) reanalyzeBtn.addEventListener('click', () => reviewPage());
+if (backHomeBtn) backHomeBtn.addEventListener('click', () => switchTab('overview'));
+if (retryBtn) retryBtn.addEventListener('click', () => switchTab('overview'));
+if (explainSelectionBtn) explainSelectionBtn.addEventListener('click', () => explainSelection());
 
-// Document type buttons
-document.getElementById('type-form16').addEventListener('click', () => uploadDocument('form16'));
-document.getElementById('type-salary-slip').addEventListener('click', () => uploadDocument('salary_slip'));
-cancelUploadBtn.addEventListener('click', () => {
+// Files
+if (uploadDropzone) uploadDropzone.addEventListener('click', () => fileInput.click());
+if (fileInput) fileInput.addEventListener('change', (e) => handleFileSelected(e.target.files[0]));
+if (uploadDropzone) {
+  uploadDropzone.addEventListener('dragover', (e) => { e.preventDefault(); uploadDropzone.style.borderColor = 'var(--color-primary)'; });
+  uploadDropzone.addEventListener('dragleave', () => { uploadDropzone.style.borderColor = 'var(--border-default)'; });
+  uploadDropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadDropzone.style.borderColor = 'var(--border-default)';
+    handleFileSelected(e.dataTransfer.files[0]);
+  });
+}
+const typeForm16 = document.getElementById('type-form16');
+const typeSalarySlip = document.getElementById('type-salary-slip');
+if (typeForm16) typeForm16.addEventListener('click', () => uploadDocument('form16'));
+if (typeSalarySlip) typeSalarySlip.addEventListener('click', () => uploadDocument('salary_slip'));
+if (cancelUploadBtn) cancelUploadBtn.addEventListener('click', () => {
   pendingFile = null;
   docTypeSelector.classList.add('hidden');
   uploadDropzone.classList.remove('hidden');
 });
 
-// Listen for messages from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'trigger-analysis') {
-    analyzePage();
+    reviewPage();
   }
-
   if (message.action === 'explain-selection') {
     explainSelectionFromContext(message.data);
   }
@@ -332,105 +402,62 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // ── Core Functions ─────────────────────────────────────────
 
-/**
- * Main flow: Analyze the current page.
- */
-async function analyzePage() {
-  showState('loading');
-
-  // Update loading text if documents are uploaded
-  if (documents.length > 0) {
-    loadingSubtext.textContent = `Analyzing with ${documents.length} document${documents.length > 1 ? 's' : ''}... This may take 4-6 seconds`;
-  } else {
-    loadingSubtext.textContent = 'This usually takes 3-5 seconds';
-  }
-
-  try {
-    // Step 1: Get active tab info
-    const tabInfo = await sendMessage({ action: 'get-active-tab' });
-    if (tabInfo.error) throw new Error(tabInfo.error);
-
-    // Step 2: Capture screenshot
-    const screenshotResult = await sendMessage({ action: 'capture-screenshot' });
-    if (screenshotResult.error) throw new Error(screenshotResult.error);
-
-    // Step 3: Extract DOM data
-    const domResult = await sendMessage({
-      action: 'extract-dom',
-      tabId: tabInfo.tabId,
-    });
-    if (domResult.error) throw new Error(domResult.error);
-
-    // Step 4: Send to backend (include sessionId for V1 personalization)
-    const requestBody = {
-      screenshot: screenshotResult.screenshot,
-      domData: domResult.domData,
-      pageTitle: tabInfo.title,
-      pageUrl: tabInfo.url,
-    };
-
-    if (sessionId) {
-      requestBody.sessionId = sessionId;
+function updateLoadingTimeline(stepIndex) {
+  const steps = [
+    'Capturing Page Context',
+    'Extracting DOM Data',
+    'Validating Fields against Documents',
+    'Generating Review Results'
+  ];
+  
+  let html = '';
+  steps.forEach((step, i) => {
+    let statusClass = '';
+    let icon = '<div class="timeline-spinner"></div>';
+    
+    if (i < stepIndex) {
+      statusClass = 'done';
+      icon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    } else if (i === stepIndex) {
+      statusClass = 'active';
+    } else {
+      icon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>`;
     }
-
-    const response = await fetch(`${BACKEND_URL}/api/explain-page`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || `Server error: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.message || 'Analysis failed');
-    }
-
-    // Step 5: Render results
-    renderResults(result.data, result.meta);
-
-  } catch (error) {
-    console.error('[TaxPilot] Analysis error:', error);
-    showError('Analysis Failed', getErrorMessage(error));
-  }
+    
+    html += `
+      <div class="timeline-step ${statusClass}">
+        <div class="timeline-icon">${icon}</div>
+        <span>${step}</span>
+      </div>
+    `;
+  });
+  loadingTimeline.innerHTML = html;
 }
 
-/**
- * Main flow V2: Review the current page (RAG + Validation).
- */
 async function reviewPage() {
   showState('loading');
-
-  // Update loading text
-  loadingSubtext.textContent = `Reviewing with ${documents.length} document${documents.length > 1 ? 's' : ''} and tax rules... This may take 5-7 seconds`;
+  updateLoadingTimeline(0);
 
   try {
     const tabInfo = await sendMessage({ action: 'get-active-tab' });
     if (tabInfo.error) throw new Error(tabInfo.error);
-
+    
+    updateLoadingTimeline(1);
     const screenshotResult = await sendMessage({ action: 'capture-screenshot' });
     if (screenshotResult.error) throw new Error(screenshotResult.error);
 
-    const domResult = await sendMessage({
-      action: 'extract-dom',
-      tabId: tabInfo.tabId,
-    });
+    updateLoadingTimeline(2);
+    const domResult = await sendMessage({ action: 'extract-dom', tabId: tabInfo.tabId });
     if (domResult.error) throw new Error(domResult.error);
 
+    updateLoadingTimeline(3);
     const requestBody = {
       screenshot: screenshotResult.screenshot,
       domData: domResult.domData,
       pageTitle: tabInfo.title,
       pageUrl: tabInfo.url,
     };
-
-    if (sessionId) {
-      requestBody.sessionId = sessionId;
-    }
+    if (sessionId) requestBody.sessionId = sessionId;
 
     const response = await fetch(`${BACKEND_URL}/api/review-page`, {
       method: 'POST',
@@ -444,57 +471,39 @@ async function reviewPage() {
     }
 
     const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Review failed');
 
-    if (!result.success) {
-      throw new Error(result.message || 'Review failed');
-    }
-
-    // Render V2 results
     renderReviewResults(result.data, result.meta);
-
   } catch (error) {
-    console.error('[TaxPilot] Review error:', error);
     showError('Review Failed', getErrorMessage(error));
   }
 }
 
-/**
- * Explain selected text from the page.
- */
 async function explainSelection() {
   showState('loading');
-
+  updateLoadingTimeline(0);
   try {
     const tabInfo = await sendMessage({ action: 'get-active-tab' });
     if (tabInfo.error) throw new Error(tabInfo.error);
 
-    const selectionResult = await sendMessage({
-      action: 'get-selected-text',
-      tabId: tabInfo.tabId,
-    });
-
+    const selectionResult = await sendMessage({ action: 'get-selected-text', tabId: tabInfo.tabId });
     const selectedText = selectionResult.selectedText?.trim();
     if (!selectedText) {
       showState('welcome');
-      showError('No Text Selected', 'Please highlight some text on the page first, then click "Explain Selected Text".');
       return;
     }
 
-    const domResult = await sendMessage({
-      action: 'extract-dom',
-      tabId: tabInfo.tabId,
-    });
+    updateLoadingTimeline(2);
+    const domResult = await sendMessage({ action: 'extract-dom', tabId: tabInfo.tabId });
 
+    updateLoadingTimeline(3);
     const requestBody = {
       selectedText,
       domData: domResult.domData || {},
       pageTitle: tabInfo.title,
       pageUrl: tabInfo.url,
     };
-
-    if (sessionId) {
-      requestBody.sessionId = sessionId;
-    }
+    if (sessionId) requestBody.sessionId = sessionId;
 
     const response = await fetch(`${BACKEND_URL}/api/explain-selection`, {
       method: 'POST',
@@ -502,48 +511,29 @@ async function explainSelection() {
       body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || `Server error: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
     const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.message || 'Explanation failed');
-    }
-
-    renderResults(result.data, result.meta, selectedText);
-
+    renderReviewResults(result.data, result.meta);
   } catch (error) {
-    console.error('[TaxPilot] Selection error:', error);
     showError('Explanation Failed', getErrorMessage(error));
   }
 }
 
-/**
- * Handle selection explanation triggered from context menu.
- */
 async function explainSelectionFromContext(data) {
   showState('loading');
-
+  updateLoadingTimeline(2);
   try {
     const tabInfo = await sendMessage({ action: 'get-active-tab' });
-    const domResult = await sendMessage({
-      action: 'extract-dom',
-      tabId: tabInfo.tabId,
-    });
+    const domResult = await sendMessage({ action: 'extract-dom', tabId: tabInfo.tabId });
 
+    updateLoadingTimeline(3);
     const requestBody = {
       selectedText: data.selectedText,
       domData: domResult.domData || {},
       pageTitle: data.pageTitle || tabInfo.title,
       pageUrl: data.pageUrl || tabInfo.url,
     };
-
-    if (sessionId) {
-      requestBody.sessionId = sessionId;
-    }
+    if (sessionId) requestBody.sessionId = sessionId;
 
     const response = await fetch(`${BACKEND_URL}/api/explain-selection`, {
       method: 'POST',
@@ -551,410 +541,161 @@ async function explainSelectionFromContext(data) {
       body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || `Server error: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`Server error`);
     const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.message || 'Explanation failed');
-    }
-
-    renderResults(result.data, result.meta, data.selectedText);
-
+    renderReviewResults(result.data, result.meta);
   } catch (error) {
-    console.error('[TaxPilot] Context menu explanation error:', error);
     showError('Explanation Failed', getErrorMessage(error));
   }
 }
 
 // ── Rendering Functions ────────────────────────────────────
 
-/**
- * Clear all result sections.
- */
 function clearResults() {
-  resultsHeader.innerHTML = '';
-  resultsFields.innerHTML = '';
-  inconsistenciesSection.innerHTML = '';
-  missingDocsSection.innerHTML = '';
-  docSummaryBar.innerHTML = '';
-  healthScoreWidget.innerHTML = '';
-  validationSummaryBar.innerHTML = '';
-  warningsSection.innerHTML = '';
-  taxRulesSection.innerHTML = '';
+  if(resultsHeader) resultsHeader.innerHTML = '';
+  if(healthScoreWidget) healthScoreWidget.innerHTML = '';
+  if(validationSummaryBar) validationSummaryBar.innerHTML = '';
+  if(warningsSection) warningsSection.innerHTML = '';
+  if(resultsFields) resultsFields.innerHTML = '';
+  if(missingDocsSection) missingDocsSection.innerHTML = '';
+  if(taxRulesSection) taxRulesSection.innerHTML = '';
 
-  inconsistenciesSection.classList.add('hidden');
-  missingDocsSection.classList.add('hidden');
-  docSummaryBar.classList.add('hidden');
-  healthScoreWidget.classList.add('hidden');
-  validationSummaryBar.classList.add('hidden');
-  warningsSection.classList.add('hidden');
-  taxRulesSection.classList.add('hidden');
+  if(healthScoreWidget) healthScoreWidget.classList.add('hidden');
+  if(validationSummaryBar) validationSummaryBar.classList.add('hidden');
+  if(warningsSection) warningsSection.classList.add('hidden');
+  if(missingDocsSection) missingDocsSection.classList.add('hidden');
+  if(taxRulesSection) taxRulesSection.classList.add('hidden');
 }
 
-/**
- * Render the analysis results (V1: includes recommendations, inconsistencies, missing docs).
- */
-function renderResults(data, meta, selectedText = null) {
-  clearResults();
-
-  // ── Document Summary Bar ──
-  if (data.documentsSummary) {
-    docSummaryBar.innerHTML = `
-      <div class="doc-bar-icon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-        </svg>
-      </div>
-      <span>${escapeHtml(data.documentsSummary)}</span>
-    `;
-    docSummaryBar.classList.remove('hidden');
-  } else if (documents.length === 0) {
-    docSummaryBar.innerHTML = `
-      <div class="doc-bar-icon doc-bar-empty">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-        </svg>
-      </div>
-      <span>No documents uploaded — go back and upload your Form 16 for personalized guidance</span>
-    `;
-    docSummaryBar.classList.remove('hidden');
-  } else {
-    docSummaryBar.classList.add('hidden');
-  }
-
-  // ── Inconsistencies Section ──
-  if (data.inconsistencies && data.inconsistencies.length > 0) {
-    let inconsistHTML = `
-      <div class="inconsistencies-header">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-          <line x1="12" y1="9" x2="12" y2="13"/>
-          <line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
-        <span>${data.inconsistencies.length} Inconsistenc${data.inconsistencies.length === 1 ? 'y' : 'ies'} Detected</span>
-      </div>
-    `;
-
-    for (const inc of data.inconsistencies) {
-      inconsistHTML += `
-        <div class="inconsistency-card severity-${(inc.severity || 'medium').toLowerCase()}">
-          <div class="inconsistency-field">${escapeHtml(inc.field)}</div>
-          <div class="inconsistency-values">
-            <span class="inconsistency-portal">Portal: ${escapeHtml(inc.portalValue)}</span>
-            <span class="inconsistency-vs">vs</span>
-            <span class="inconsistency-doc">${escapeHtml(inc.document)}: ${escapeHtml(inc.documentValue)}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    inconsistenciesSection.innerHTML = inconsistHTML;
-    inconsistenciesSection.classList.remove('hidden');
-  } else {
-    inconsistenciesSection.classList.add('hidden');
-  }
-
-  // ── Header ──
-  let headerHTML = '';
-
-  if (selectedText) {
-    headerHTML += `
-      <div class="selection-header">
-        <span class="selection-badge">Selection</span>
-        <span class="selection-text">"${escapeHtml(selectedText.substring(0, 80))}${selectedText.length > 80 ? '...' : ''}"</span>
-      </div>
-    `;
-  }
-
-  headerHTML += `
-    <h2 class="page-title">${escapeHtml(data.pageTitle || 'Page Analysis')}</h2>
-    <p class="page-summary">${escapeHtml(data.pageSummary || '')}</p>
-  `;
-
-  if (data.fields && data.fields.length > 0) {
-    headerHTML += `
-      <div class="fields-count">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="7" height="7"/>
-          <rect x="14" y="3" width="7" height="7"/>
-          <rect x="3" y="14" width="7" height="7"/>
-          <rect x="14" y="14" width="7" height="7"/>
-        </svg>
-        ${data.fields.length} field${data.fields.length !== 1 ? 's' : ''} detected
-      </div>
-    `;
-  }
-
-  if (meta) {
-    headerHTML += `
-      <div class="meta-info">
-        <div class="meta-item">
-          <span class="meta-dot"></span>
-          ${meta.processingTimeMs ? `${(meta.processingTimeMs / 1000).toFixed(1)}s` : 'Done'}
-        </div>
-      </div>
-    `;
-  }
-
-  resultsHeader.innerHTML = headerHTML;
-
-  // ── Field Cards ──
-  let fieldsHTML = '';
-
-  if (data.fields && data.fields.length > 0) {
-    data.fields.forEach(field => {
-      fieldsHTML += renderFieldCard(field);
-    });
-    resultsFields.innerHTML = fieldsHTML;
-    resultsFields.style.display = 'flex';
-  } else {
-    resultsFields.innerHTML = '';
-    resultsFields.style.display = 'none';
-  }
-
-  // ── Missing Documents Section ──
-  if (data.missingDocuments && data.missingDocuments.length > 0) {
-    let missingHTML = `
-      <div class="missing-docs-header">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="16" x2="12" y2="12"/>
-          <line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
-        <span>Additional Documents That May Help</span>
-      </div>
-    `;
-
-    for (const doc of data.missingDocuments) {
-      missingHTML += `
-        <div class="missing-doc-item">
-          <span class="missing-doc-name">${escapeHtml(doc.document)}</span>
-          <span class="missing-doc-reason">${escapeHtml(doc.reason)}</span>
-        </div>
-      `;
-    }
-
-    missingDocsSection.innerHTML = missingHTML;
-    missingDocsSection.classList.remove('hidden');
-  } else {
-    missingDocsSection.classList.add('hidden');
-  }
-
-  showState('results');
-}
-
-/**
- * Render the review results (V2: health score, warnings, validations, rules).
- */
 function renderReviewResults(data, meta) {
   clearResults();
 
-  // ── 1. Document Summary ──
-  if (data.documentsSummary) {
-    docSummaryBar.innerHTML = `
-      <div class="doc-bar-icon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-        </svg>
-      </div>
-      <span>${escapeHtml(data.documentsSummary)}</span>
-    `;
-    docSummaryBar.classList.remove('hidden');
-  }
-
-  // ── 2. Header & Review Summary ──
+  // 1. Header
   let headerHTML = `
     <h2 class="page-title">${escapeHtml(data.pageTitle || 'Page Review')}</h2>
-    <p class="page-summary">${escapeHtml(data.reviewSummary || '')}</p>
+    <p class="page-summary text-secondary mt-2" style="font-size: 0.85rem;">${escapeHtml(data.reviewSummary || '')}</p>
   `;
-  
   if (meta) {
-    headerHTML += `
-      <div class="meta-info">
-        <div class="meta-item">
-          <span class="meta-dot"></span>
-          ${meta.processingTimeMs ? `${(meta.processingTimeMs / 1000).toFixed(1)}s` : 'Done'}
-        </div>
-      </div>
-    `;
+    headerHTML += `<div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 8px;">Processing time: ${meta.processingTimeMs ? `${(meta.processingTimeMs / 1000).toFixed(1)}s` : 'Done'}</div>`;
   }
-  resultsHeader.innerHTML = headerHTML;
+  if(resultsHeader) resultsHeader.innerHTML = headerHTML;
 
-  // ── 3. Health Score ──
-  if (data.healthScore) {
+  // 2. Health Score
+  if (data.healthScore && healthScoreWidget) {
     const score = data.healthScore.score;
     const label = data.healthScore.label;
-    
-    // Determine color based on score
     let colorClass = 'health-good';
     if (score < 70) colorClass = 'health-warning';
     if (score < 50) colorClass = 'health-critical';
 
-    // SVG Circle Math
     const radius = 36;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (score / 100) * circumference;
 
     healthScoreWidget.innerHTML = `
-      <div class="health-score-container ${colorClass}">
-        <div class="health-ring">
-          <svg width="84" height="84" viewBox="0 0 84 84">
-            <circle class="ring-bg" cx="42" cy="42" r="${radius}" stroke-width="8" fill="none" />
-            <circle class="ring-fill" cx="42" cy="42" r="${radius}" stroke-width="8" fill="none"
-              stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
-              stroke-linecap="round" transform="rotate(-90 42 42)" />
-          </svg>
-          <div class="health-score-value">${score}</div>
-        </div>
-        <div class="health-score-text">
-          <div class="health-label">${escapeHtml(label)}</div>
-          <div class="health-subtitle">Filing Health Score</div>
-        </div>
+      <div class="health-ring ${colorClass}">
+        <svg width="80" height="80" viewBox="0 0 84 84">
+          <circle class="ring-bg" cx="42" cy="42" r="${radius}" />
+          <circle class="ring-fill" cx="42" cy="42" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" />
+        </svg>
+        <div class="health-score-value">${score}</div>
+      </div>
+      <div class="health-text">
+        <div class="health-label">${escapeHtml(label)}</div>
+        <div class="health-subtitle">Filing Health Score</div>
       </div>
     `;
     healthScoreWidget.classList.remove('hidden');
     
     // Validation Summary Bar
     const b = data.healthScore.breakdown;
-    if (b) {
+    if (b && validationSummaryBar) {
       validationSummaryBar.innerHTML = `
-        <div class="val-stat stat-total"><span class="dot dot-gray"></span>${b.totalFieldsReviewed} Reviewed</div>
-        <div class="val-stat stat-valid"><span class="dot dot-green"></span>${b.validatedFields} Valid</div>
-        ${b.warnings > 0 ? `<div class="val-stat stat-warn"><span class="dot dot-yellow"></span>${b.warnings} Warnings</div>` : ''}
-        ${b.criticalIssues > 0 ? `<div class="val-stat stat-crit"><span class="dot dot-red"></span>${b.criticalIssues} Critical</div>` : ''}
+        <div class="val-stat"><span class="dot dot-gray"></span>${b.totalFieldsReviewed} Reviewed</div>
+        <div class="val-stat"><span class="dot dot-green"></span>${b.validatedFields} Valid</div>
+        ${b.warnings > 0 ? `<div class="val-stat"><span class="dot dot-yellow"></span>${b.warnings} Warnings</div>` : ''}
+        ${b.criticalIssues > 0 ? `<div class="val-stat"><span class="dot dot-red"></span>${b.criticalIssues} Critical</div>` : ''}
       `;
       validationSummaryBar.classList.remove('hidden');
     }
   }
 
-  // ── 4. Categorized Warnings ──
-  if (data.warnings && data.warnings.length > 0) {
-    let warningsHTML = '<h3 class="section-title">Review Findings</h3>';
-    
+  // 3. Warnings
+  if (data.warnings && data.warnings.length > 0 && warningsSection) {
+    let warningsHTML = '<h3 class="section-title mb-4">Review Findings</h3>';
     data.warnings.forEach(warn => {
       const severity = (warn.severity || 'INFO').toUpperCase();
-      
       warningsHTML += `
         <div class="warning-card warning-${severity.toLowerCase()}">
           <div class="warning-header">
             <span class="severity-badge badge-${severity.toLowerCase()}">${severity}</span>
             <span class="warning-title">${escapeHtml(warn.title)}</span>
           </div>
-          <div class="warning-body">
-            <p class="warning-message">${escapeHtml(warn.message)}</p>
-            ${warn.suggestedAction ? `<p class="warning-action"><strong>Action:</strong> ${escapeHtml(warn.suggestedAction)}</p>` : ''}
-          </div>
+          <div class="warning-message">${escapeHtml(warn.message)}</div>
+          ${warn.suggestedAction ? `<div class="warning-action"><strong>Action:</strong> ${escapeHtml(warn.suggestedAction)}</div>` : ''}
       `;
-      
       if (warn.evidence && warn.evidence.length > 0) {
         warningsHTML += `<div class="warning-evidence">`;
         warn.evidence.forEach(ev => {
-          warningsHTML += `
-            <div class="evidence-item">
-              <span class="evidence-source">${escapeHtml(ev.source)}</span>
-              <span class="evidence-detail">${escapeHtml(ev.detail)}</span>
-            </div>
-          `;
+          warningsHTML += `<div class="evidence-item"><span class="evidence-source">${escapeHtml(ev.source)}</span><span class="evidence-detail">${escapeHtml(ev.detail)}</span></div>`;
         });
         warningsHTML += `</div>`;
       }
       warningsHTML += `</div>`;
     });
-    
     warningsSection.innerHTML = warningsHTML;
     warningsSection.classList.remove('hidden');
   }
 
-  // ── 5. Field Validations ──
-  if (data.fieldValidations && data.fieldValidations.length > 0) {
-    let fieldsHTML = '<h3 class="section-title mt-4">Field Details</h3>';
-    
+  // 4. Fields
+  if (data.fieldValidations && data.fieldValidations.length > 0 && resultsFields) {
+    let fieldsHTML = '';
     data.fieldValidations.forEach(field => {
       const status = (field.status || 'VALID').toUpperCase();
       const statusClass = `status-${status.toLowerCase()}`;
+      let statusIcon = status === 'VALID' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
       
-      let statusIcon = '';
-      if (status === 'VALID') statusIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-      else if (status === 'WARNING') statusIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-      else if (status === 'CRITICAL') statusIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      else statusIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
-
       fieldsHTML += `
         <div class="field-card">
           <div class="field-header">
             <div class="field-name">${escapeHtml(field.name || 'Unknown Field')}</div>
-            <div class="field-status ${statusClass}">
-              ${statusIcon} ${status.replace('_', ' ')}
-            </div>
+            <div class="field-status ${statusClass}">${statusIcon} ${status.replace('_', ' ')}</div>
           </div>
       `;
-
       if (field.currentValue) {
-        fieldsHTML += `
-          <div class="field-detail" data-type="selected">
-            <span class="field-detail-label">Portal Value</span>
-            <span class="field-detail-value font-mono font-bold">${escapeHtml(field.currentValue)}</span>
-          </div>
-        `;
+        fieldsHTML += `<div class="field-detail"><span class="field-detail-label">Portal Value</span><span class="field-detail-value">${escapeHtml(field.currentValue)}</span></div>`;
       }
-
       if (field.recommendation && field.recommendation.suggestedAction) {
         const rec = field.recommendation;
-        const conf = (rec.confidence || 'MEDIUM').toUpperCase();
         fieldsHTML += `
-          <div class="field-recommendation confidence-${conf.toLowerCase()}">
-            <p class="recommendation-text">${escapeHtml(rec.suggestedAction)}</p>
-            ${rec.reasoning ? `<p class="recommendation-reasoning">${escapeHtml(rec.reasoning)}</p>` : ''}
-            ${rec.sources && rec.sources.length ? `<p class="recommendation-source">Sources: ${escapeHtml(rec.sources.join(', '))}</p>` : ''}
+          <div class="field-recommendation">
+            <div class="recommendation-text">${escapeHtml(rec.suggestedAction)}</div>
+            ${rec.reasoning ? `<div class="recommendation-reasoning">${escapeHtml(rec.reasoning)}</div>` : ''}
           </div>
         `;
       }
-
       fieldsHTML += `</div>`;
     });
-    
     resultsFields.innerHTML = fieldsHTML;
-    resultsFields.style.display = 'flex';
-  } else {
-    resultsFields.innerHTML = '';
-    resultsFields.style.display = 'none';
   }
 
-  // ── 6. Missing Documents ──
-  if (data.missingDocuments && data.missingDocuments.length > 0) {
+  // 5. Missing Docs
+  if (data.missingDocuments && data.missingDocuments.length > 0 && missingDocsSection) {
     let missingHTML = `
       <div class="missing-docs-header">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="16" x2="12" y2="12"/>
-          <line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
-        <span>Additional Documents That May Help</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Helpful Documents</span>
       </div>
     `;
-
     data.missingDocuments.forEach(doc => {
-      missingHTML += `
-        <div class="missing-doc-item">
-          <span class="missing-doc-name">${escapeHtml(doc.document)}</span>
-          <span class="missing-doc-reason">${escapeHtml(doc.reason)}</span>
-        </div>
-      `;
+      missingHTML += `<div class="missing-doc-item"><span class="missing-doc-name">${escapeHtml(doc.document)}</span><span class="missing-doc-reason">${escapeHtml(doc.reason)}</span></div>`;
     });
-
     missingDocsSection.innerHTML = missingHTML;
     missingDocsSection.classList.remove('hidden');
   }
 
-  // ── 7. Tax Rules Applied ──
-  if (data.taxRulesApplied && data.taxRulesApplied.length > 0) {
+  // 6. Tax Rules
+  if (data.taxRulesApplied && data.taxRulesApplied.length > 0 && taxRulesSection) {
     taxRulesSection.innerHTML = `
       <details class="tax-rules-details">
         <summary>Tax rules applied (${data.taxRulesApplied.length})</summary>
@@ -969,167 +710,36 @@ function renderReviewResults(data, meta) {
   showState('results');
 }
 
-/**
- * Render a single field explanation card (V1: includes recommendation + inconsistency).
- */
-function renderFieldCard(field) {
-  let html = `<div class="field-card">`;
-
-  // Field name
-  html += `<div class="field-name">${escapeHtml(field.name || 'Unknown Field')}</div>`;
-
-  // Description
-  if (field.description) {
-    html += `<p class="field-description">${escapeHtml(field.description)}</p>`;
-  }
-
-  // Selected value
-  if (field.selectedValue) {
-    html += `
-      <div class="field-detail" data-type="selected">
-        <span class="field-detail-label">Selected</span>
-        <span class="field-detail-value font-mono font-bold">${escapeHtml(field.selectedValue)}</span>
-      </div>
-    `;
-  }
-
-  // V1: Recommendation
-  if (field.recommendation) {
-    const rec = field.recommendation;
-    const confidence = (rec.confidence || 'MEDIUM').toUpperCase();
-
-    html += `
-      <div class="field-recommendation confidence-${confidence.toLowerCase()}">
-        <div class="recommendation-header">
-          <span class="confidence-badge confidence-${confidence.toLowerCase()}">${confidence}</span>
-          <span class="recommendation-label">Recommendation</span>
-        </div>
-        <p class="recommendation-text">${escapeHtml(rec.suggestedAction)}</p>
-    `;
-
-    if (rec.reasoning) {
-      html += `<p class="recommendation-reasoning">${escapeHtml(rec.reasoning)}</p>`;
-    }
-
-    if (rec.sourceDocument) {
-      html += `<p class="recommendation-source">Source: ${escapeHtml(rec.sourceDocument)}</p>`;
-    }
-
-    html += `</div>`;
-  }
-
-  // V1: Field-level inconsistency
-  if (field.inconsistency) {
-    const inc = field.inconsistency;
-    const severity = (inc.severity || 'MEDIUM').toUpperCase();
-
-    html += `
-      <div class="field-inconsistency severity-${severity.toLowerCase()}">
-        <div class="inconsistency-inline-header">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-            <line x1="12" y1="9" x2="12" y2="13"/>
-            <line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          <span>Mismatch Detected</span>
-        </div>
-        <p class="inconsistency-message">${escapeHtml(inc.message)}</p>
-      </div>
-    `;
-  }
-
-  // When applicable
-  if (field.whenApplicable) {
-    html += `
-      <div class="field-detail" data-type="when">
-        <span class="field-detail-label">When</span>
-        <span class="field-detail-value">${escapeHtml(field.whenApplicable)}</span>
-      </div>
-    `;
-  }
-
-  // Notes
-  if (field.notes) {
-    html += `
-      <div class="field-detail" data-type="notes">
-        <span class="field-detail-label">Notes</span>
-        <span class="field-detail-value">${escapeHtml(field.notes)}</span>
-      </div>
-    `;
-  }
-
-  html += `</div>`;
-  return html;
-}
-
-/**
- * Show the error state with a title and message.
- */
 function showError(title, message) {
-  errorTitle.textContent = title;
-  errorMessage.textContent = message;
+  if(errorTitle) errorTitle.textContent = title;
+  if(errorMessage) errorMessage.textContent = message;
   showState('error');
 }
 
-// ── Utility Functions ──────────────────────────────────────
-
-/**
- * Send a message to the background script and return the response.
- */
 function sendMessage(message) {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({ error: chrome.runtime.lastError.message });
-      } else {
-        resolve(response || {});
-      }
+      if (chrome.runtime.lastError) resolve({ error: chrome.runtime.lastError.message });
+      else resolve(response || {});
     });
   });
 }
 
-/**
- * Escape HTML to prevent XSS.
- */
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-/**
- * Get a user-friendly error message.
- */
 function getErrorMessage(error) {
   const msg = error.message || String(error);
-
-  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ERR_CONNECTION_REFUSED')) {
-    return 'Cannot connect to the TaxPilot backend. Make sure the backend server is running (npm run dev in the backend folder).';
-  }
-
-  if (msg.includes('429') || msg.includes('quota') || msg.includes('Rate')) {
-    return 'Too many requests. Please wait a moment and try again.';
-  }
-
-  if (msg.includes('API_KEY') || msg.includes('GEMINI')) {
-    return 'The Gemini API key is not configured. Please set GEMINI_API_KEY in the backend .env file.';
-  }
-
-  if (msg.includes('Screenshot failed')) {
-    return 'Could not capture a screenshot of the current page. Make sure you\'re on a regular web page (not a Chrome internal page).';
-  }
-
-  if (msg.includes('DOM extraction failed')) {
-    return 'Could not read the page content. Try refreshing the page and trying again.';
-  }
-
-  if (msg.includes('404') || msg.includes('502') || msg.includes('503')) {
-    return 'The backend server is waking up from sleep (Render free tier). This takes about 30-50 seconds. Please wait a moment and click Try Again.';
-  }
-
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return 'Cannot connect to the TaxPilot backend.';
+  if (msg.includes('429')) return 'Too many requests. Please wait a moment and try again.';
   return msg;
 }
 
 // ── Initialize ─────────────────────────────────────────────
 
+initAuth();
 initSession();
+switchTab('overview');

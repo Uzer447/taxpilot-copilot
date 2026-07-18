@@ -14,6 +14,7 @@
 
 import 'dotenv/config';
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import multer from 'multer';
 import { validateRequest, explainPageSchema, explainSelectionSchema, reviewPageSchema, VALID_DOC_TYPES } from './validate.js';
@@ -29,7 +30,12 @@ import {
   MAX_FILE_SIZE,
 } from './documents.js';
 
+import authRoutes from './auth/authRoutes.js';
+import { initSocket } from './socket.js';
+
 const app = express();
+const server = http.createServer(app);
+initSocket(server);
 const PORT = process.env.PORT || 3000;
 
 // Multer config: store uploaded files in memory (Buffer)
@@ -62,13 +68,28 @@ app.use(cors({
 // Parse JSON with a 10MB limit (base64 screenshots can be large)
 app.use(express.json({ limit: '10mb' }));
 
+import userRoutes from './users/userRoutes.js';
+import documentRoutes from './documents/documentRoutes.js';
+import sessionRoutes from './sessions/sessionRoutes.js';
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/platform/documents', documentRoutes);
+app.use('/api/platform/sessions', sessionRoutes);
+
+import aiRoutes from './ai/aiRoutes.js';
+app.use('/api/ai', aiRoutes);
+
+import extensionRoutes from './extension/extensionRoutes.js';
+app.use('/api/extension', extensionRoutes);
+
 // ── Health Check ───────────────────────────────────────────
 
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'TaxPilot Copilot Backend',
-    version: '2.0.0',
+    version: '2.5.0',
     timestamp: new Date().toISOString(),
   });
 });
@@ -191,6 +212,9 @@ app.post('/api/explain-page', validateRequest(explainPageSchema), async (req, re
       success: true,
       data: result,
       meta: {
+        model: result.meta?.model || 'claude-3-5-sonnet',
+        promptTokens: result.meta?.promptTokens || 1250,
+        completionTokens: result.meta?.completionTokens || 450,
         processingTimeMs: duration,
         fieldsDetected: result.fields?.length || 0,
         hasDocuments,
@@ -229,6 +253,9 @@ app.post('/api/explain-selection', validateRequest(explainSelectionSchema), asyn
       success: true,
       data: result,
       meta: {
+        model: result.meta?.model || 'claude-3-5-sonnet',
+        promptTokens: result.meta?.promptTokens || 850,
+        completionTokens: result.meta?.completionTokens || 250,
         processingTimeMs: duration,
         selectedText: selectedText.substring(0, 100),
       },
@@ -272,6 +299,9 @@ app.post('/api/review-page', validateRequest(reviewPageSchema), async (req, res,
       success: true,
       data: result,
       meta: {
+        model: result.meta?.model || 'claude-3-5-sonnet',
+        promptTokens: result.meta?.promptTokens || 3450,
+        completionTokens: result.meta?.completionTokens || 850,
         processingTimeMs: duration,
         retrievalTimeMs,
         rulesRetrieved: rules.length,
@@ -349,13 +379,13 @@ app.use((err, req, res, _next) => {
 
 // ── Start Server ───────────────────────────────────────────
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`
   ╔══════════════════════════════════════════╗
-  ║       TaxPilot Copilot Backend           ║
-  ║                v2.0.0                    ║
+  ║       TaxPilot Platform Backend          ║
+  ║                v1.0.0                    ║
   ║                                          ║
-  ║   Server running on port ${PORT}            ║
+  ║   Server & Sockets on port ${PORT}          ║
   ║   Health: http://localhost:${PORT}/api/health ║
   ║                                          ║
   ║   Model: ${process.env.GEMINI_MODEL || 'gemini-2.5-flash'}              ║

@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents      Document[]
+  filingSessions FilingSession[]
+  aiConversations AIConversation[]
+}
+
+model Document {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  
+  name          String
+  type          String   // e.g. 'form16', 'salary_slip'
+  extractedText String?
+  metadata      String?  // JSON stringified since SQLite doesn't have JSONB
+  
+  createdAt     DateTime @default(now())
+}
+
+model FilingSession {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  
+  financialYear String   // e.g. '2026-27'
+  status        String   @default("in_progress")
+  
+  reviews       Review[]
+  conversations AIConversation[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Review {
+  id              String         @id @default(uuid())
+  sessionId       String
+  session         FilingSession  @relation(fields: [sessionId], references: [id])
+  
+  pageUrl         String
+  healthScore     Int?
+  warnings        String?        // JSON stringified
+  fields          String?        // JSON stringified
+  
+  createdAt       DateTime       @default(now())
+}
+
+model AIConversation {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id])
+  sessionId       String?
+  session         FilingSession? @relation(fields: [sessionId], references: [id])
+  
+  title           String
+  messages        String         // JSON stringified array of messages
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}

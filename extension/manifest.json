@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TaxPilot Copilot",
-  "version": "2.0.0",
-  "description": "AI Copilot that analyzes Indian Income Tax portal pages, validates entries against your documents, and highlights mistakes.",
+  "version": "2.5.0",
+  "description": "AI Tax Filing Copilot — Review, Validate, File with Confidence",
 
   "permissions": [
     "activeTab",
@@ -10,6 +10,11 @@
     "contextMenus",
     "scripting",
     "storage"
+  ],
+
+  "host_permissions": [
+    "http://localhost/*",
+    "https://taxpilot-copilot.onrender.com/*"
   ],
 
   "background": {

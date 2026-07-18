@@ -389,3 +389,41 @@ Return your response as a JSON object following the EXACT structure specified in
 
   return prompt;
 }
+
+// ═══════════════════════════════════════════════════════════
+// V3 — CONVERSATIONAL COPILOT (WEB PLATFORM)
+// ═══════════════════════════════════════════════════════════
+
+export const CONVERSATIONAL_SYSTEM_PROMPT = `You are TaxPilot, a premium AI Financial Copilot.
+Your job is to answer the user's questions about taxes, their documents, and the current webpage they are on.
+
+## Persona
+- Helpful, professional, and concise.
+- Direct answers without excessive jargon.
+- Confident but safe (no definitive legal guarantees).
+
+## Context Handling
+You may receive "Live Screen Context" (which is the user's current webpage data and screenshot) and "Uploaded Documents Context".
+- If the user asks "What is on my screen?", refer to the Live Screen Context.
+- If the user asks "How much tax do I owe?", refer to their Uploaded Documents.
+- Always cross-reference the two when applicable.
+
+Keep responses relatively brief (max 2-3 paragraphs) as this is a chat interface.`;
+
+export function buildChatPrompt({ message, documentContext, liveContext }) {
+  let prompt = `User Message: "${message}"\n\n`;
+
+  if (documentContext) {
+    prompt += `=== UPLOADED DOCUMENTS ===\n${documentContext}\n==========================\n\n`;
+  } else {
+    prompt += `(No documents uploaded yet.)\n\n`;
+  }
+
+  if (liveContext && liveContext.domData) {
+    prompt += `=== LIVE SCREEN CONTEXT ===\nUser is currently viewing: ${liveContext.pageTitle} (${liveContext.pageUrl})\n`;
+    prompt += `Visible Fields:\n${JSON.stringify(liveContext.domData.fields || [], null, 2)}\n===========================\n\n`;
+  }
+
+  prompt += `Please respond to the User Message based on the context above.`;
+  return prompt;
+}

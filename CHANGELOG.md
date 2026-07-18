@@ -2,6 +2,16 @@
 
 All notable changes to the TaxPilot Copilot extension and backend will be documented in this file.
 
+## [2.5.0] - 2024-12-10
+
+### Product Polish Release
+- **Visual Overhaul**: Transformed the extension from a dark-themed demo into a premium, light-themed financial dashboard with an emerald green brand identity.
+- **Tab Navigation**: Introduced a clear, persistent tab system (Overview, Review, Documents) for better workflow organization.
+- **Staged Loading Experience**: Added a step-by-step loading timeline providing clear visibility into the AI's reasoning process (Capturing, Reading, Retrieving, Validating).
+- **Expandable Recommendation Cards**: Improved readability by organizing health scores, field validation metrics, and categorized warnings into interactive cards.
+- **Developer Mode**: Added a hidden developer panel (triple-click version badge) displaying LLM metadata, token usage, and processing times.
+- **Accessibility & UX**: Added ARIA attributes, keyboard navigation support, improved contextual empty/error states, and smooth micro-animations.
+
 ## [2.0.0] - 2024-11-20
 
 ### Added

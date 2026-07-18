@@ -1,137 +1,91 @@
 # TaxPilot Copilot
 
-AI-powered browser companion that explains every field on the Indian Income Tax portal — directly within your browser.
+AI Tax Filing Copilot — Review, Validate, File with Confidence.
+
+TaxPilot Copilot transforms your browser into an intelligent financial dashboard, ensuring your Indian Income Tax returns are accurate and optimized before you hit submit.
 
 ---
 
-## What It Does
+## 🌟 Overview
 
-Instead of taking screenshots and asking ChatGPT, TaxPilot explains every field on the current ITR page without you leaving the browser.
+Filing taxes shouldn't be a guessing game. TaxPilot Copilot acts as your personal tax reviewer directly on the Income Tax portal:
 
-1. Open the Income Tax portal
-2. Press **Alt+Shift+T** or click the extension icon
-3. Get instant explanations for every field on the page
-4. Continue filing with confidence
+- **Intelligent Validation:** Cross-references portal fields against your uploaded documents (Form 16, Salary Slips).
+- **Tax Knowledge Base:** Proactively applies over 60 curated Indian tax rules to ensure you're claiming the right deductions.
+- **Filing Health Score:** Get a clear, confidence-backed health score for your current page.
+- **Privacy First:** Your documents are analyzed in-memory and never permanently stored.
 
----
+## 📐 Architecture
 
-## Project Structure
+TaxPilot Copilot consists of a lightweight Chrome extension and a robust Express backend.
 
+```mermaid
+graph TD
+    subgraph Browser ["Chrome Extension (Manifest V3)"]
+        UI[Dashboard UI\nsidepanel.html/css/js]
+        BG[Service Worker\nbackground.js]
+        CS[Content Script\ncontent.js]
+        UI <--> BG
+        BG <--> CS
+    end
+
+    subgraph Backend ["Node.js + Express (Render)"]
+        API[API Router\nindex.js]
+        RAG[RAG Pipeline\nretrieval.js]
+        VAL[Validation\nvalidate.js]
+        LLM[Gemini API Client\ngemini.js]
+        DOC[Document Store\ndocuments.js]
+        
+        API --> RAG
+        API --> VAL
+        API --> LLM
+        API --> DOC
+    end
+
+    BG <-->|HTTPS REST| API
+    LLM <-->|API Key| G_API((Google AI\nGemini 2.5))
 ```
-AI_assited_tax_filing/
-├── backend/                  # Node.js + Express server
-│   ├── src/
-│   │   ├── index.js          # Express server & routes
-│   │   ├── gemini.js         # Gemini API client
-│   │   ├── prompt.js         # System prompt & templates
-│   │   └── validate.js       # Zod request validation
-│   ├── .env.example           # Environment template
-│   └── package.json
-└── extension/                # Chrome Extension (Manifest V3)
-    ├── manifest.json
-    ├── background.js          # Service worker
-    ├── content.js             # DOM extraction
-    ├── sidepanel.html         # UI structure
-    ├── sidepanel.css          # Styling
-    ├── sidepanel.js           # UI logic
-    └── icons/                 # Extension icons
-```
 
----
+## 🚀 Installation Guide
 
-## Setup
-
-### 1. Get a Gemini API Key
-
-1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
-2. Sign in with your Google account
-3. Click **"Create API Key"**
-4. Select or create a Google Cloud project
-5. Copy the generated API key
-
-### 2. Setup the Backend
+### 1. Backend Setup
 
 ```bash
 cd backend
-
-# Create your .env file
 cp .env.example .env
-
-# Open .env and paste your Gemini API key
-# GEMINI_API_KEY=your_actual_key_here
-
-# Install dependencies
+# Add your Gemini API key to .env: GEMINI_API_KEY=your_actual_key_here
 npm install
-
-# Start the server
 npm run dev
 ```
 
-The server will start on `http://localhost:3000`.
+### 2. Extension Setup
 
-Verify it's running:
-```bash
-curl http://localhost:3000/api/health
-```
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer mode**
+3. Click **"Load unpacked"** and select the `extension/` folder
+4. The TaxPilot icon will appear in your toolbar. Pin it for easy access.
 
-### 3. Load the Chrome Extension
+## 📚 API Documentation
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in the top-right)
-3. Click **"Load unpacked"**
-4. Select the `extension/` folder from this project
-5. The TaxPilot icon should appear in your toolbar
+The backend exposes several key endpoints for the extension:
 
----
+- `POST /api/documents/session` - Initializes a new document upload session
+- `POST /api/documents/upload` - Securely uploads Form 16 / Salary Slips to memory
+- `POST /api/explain-page` - Explains current portal page fields
+- `POST /api/explain-selection` - Explains user-highlighted text
+- `POST /api/review-page` - Full RAG pipeline validation against rules and documents
 
-## Usage
+## 🛠 Development Guide
 
-### Analyze Full Page
-1. Navigate to any page on the Income Tax portal
-2. Press **Alt+Shift+T** or click the TaxPilot icon
-3. Click **"Analyze This Page"** in the sidebar
-4. Wait 3-5 seconds for the AI to analyze
-5. Read the field-by-field explanations
+TaxPilot uses plain HTML, CSS, and vanilla JS for the extension to minimize bundle size, ensuring snappy performance.
 
-### Explain Selected Text
-1. Highlight any text on the page
-2. Either:
-   - Right-click → **"Explain with TaxPilot"**
-   - Click **"Explain Selected Text"** in the sidebar
-3. Get a detailed explanation of just that field
+- **Developer Mode:** Click the version badge in the extension header 3 times to reveal the Developer Panel, showing model metadata, token counts, and processing times.
+- **Theme:** The extension uses a sleek, light-themed financial dashboard aesthetic by default, with built-in dark mode support.
 
----
+## 🚀 Deployment Guide
 
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Extension | Chrome Manifest V3 (Side Panel API) |
-| Backend | Node.js + Express |
-| AI Model | Gemini 2.5 Flash |
-| Validation | Zod |
-
----
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| "Cannot connect to backend" | Make sure the backend is running: `cd backend && npm run dev` |
-| "API key not configured" | Set `GEMINI_API_KEY` in `backend/.env` |
-| "Screenshot failed" | Chrome can't capture internal pages (chrome://, extensions). Use regular web pages. |
-| "Rate limit exceeded" | Free tier has 15 RPM. Wait a moment and retry. |
-| Extension not showing | Check `chrome://extensions/` for errors. Click "Reload". |
-
----
-
-## Future Plans (Post-V0)
-
-- [ ] Custom extension icon design
-- [ ] Deploy backend to cloud (Cloud Run / Railway)
-- [ ] Form 16 analysis
-- [ ] Multi-page reasoning
-- [ ] User accounts & history
+1. **Backend:** Deploy the `backend/` folder to Render or Railway. Make sure to set `GEMINI_API_KEY`.
+2. **Extension:** Build the extension by zipping the `extension/` folder. Submit to the Chrome Web Store Developer Dashboard.
 
 ---
 
