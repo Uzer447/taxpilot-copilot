@@ -30,7 +30,6 @@ const authLogoutBtn = document.getElementById('auth-logout-btn');
 const triggerSyncBtn = document.getElementById('trigger-sync-btn');
 
 // Navigation Tabs
-const tabOverview = document.getElementById('tab-overview');
 const tabReview = document.getElementById('tab-review');
 const tabDocuments = document.getElementById('tab-documents');
 
@@ -94,17 +93,14 @@ function showState(stateName) {
 
 function switchTab(tabName) {
   currentTab = tabName;
-  [tabOverview, tabReview, tabDocuments].forEach(el => el.classList.remove('active'));
+  [tabReview, tabDocuments].forEach(el => el.classList.remove('active'));
   
   // Hide all sections in welcome state
   if (documentsSection) documentsSection.classList.add('hidden');
   
-  if (tabName === 'overview') {
-    tabOverview.classList.add('active');
-    showState('welcome');
-  } else if (tabName === 'review') {
+  if (tabName === 'review') {
     tabReview.classList.add('active');
-    // Keep results open if we have them, else show overview but focused on actions
+    // Keep results open if we have them, else show welcome (which holds actions)
     if (resultsHeader.innerHTML !== '') {
       showState('results');
     } else {
@@ -296,7 +292,6 @@ if (triggerSyncBtn) {
 }
 
 // Navigation
-if (tabOverview) tabOverview.addEventListener('click', () => switchTab('overview'));
 if (tabReview) tabReview.addEventListener('click', () => switchTab('review'));
 if (tabDocuments) tabDocuments.addEventListener('click', () => switchTab('documents'));
 
@@ -679,4 +674,4 @@ function getErrorMessage(error) {
 // ── Initialize ─────────────────────────────────────────────
 
 initSession();
-switchTab('overview');
+switchTab('review');
