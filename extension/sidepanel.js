@@ -117,136 +117,40 @@ function switchTab(tabName) {
   }
 }
 
-// ── Auth Management ────────────────────────────────────────
-
-async function initAuth() {
-  const data = await chrome.storage.local.get(['jwt_token', 'user_email']);
-  if (data.jwt_token) {
-    showLoggedInState(data.user_email);
-  } else {
-    showLoggedOutState();
-  }
-}
-
-function showLoggedInState(email) {
-  loginFormContainer.classList.add('hidden');
-  loggedInContainer.classList.remove('hidden');
-  loggedInEmail.textContent = email || 'User';
-}
-
-function showLoggedOutState() {
-  loggedInContainer.classList.add('hidden');
-  loginFormContainer.classList.remove('hidden');
-  authErrorMsg.classList.add('hidden');
-  authPassword.value = '';
-}
-
-async function handleLogin() {
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
-  
-  if (!email || !password) {
-    authErrorMsg.textContent = 'Please enter email and password';
-    authErrorMsg.classList.remove('hidden');
-    return;
-  }
-  
-  authLoginBtn.disabled = true;
-  authLoginBtn.textContent = 'Logging in...';
-  authErrorMsg.classList.add('hidden');
-  
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    
-    const data = await res.json();
-    if (data.success) {
-      await chrome.storage.local.set({ 
-        jwt_token: data.token,
-        user_email: data.user.email 
-      });
-      showLoggedInState(data.user.email);
-    } else {
-      throw new Error(data.message || 'Login failed');
-    }
-  } catch (err) {
-    authErrorMsg.textContent = err.message;
-    authErrorMsg.classList.remove('hidden');
-  } finally {
-    authLoginBtn.disabled = false;
-    authLoginBtn.textContent = 'Log In';
-  }
-}
-
-async function handleLogout() {
-  await chrome.storage.local.remove(['jwt_token', 'user_email']);
-  showLoggedOutState();
-}
-
 // ── API Helper ─────────────────────────────────────────────
 
 async function apiFetch(path, options = {}) {
-  const { jwt_token } = await chrome.storage.local.get('jwt_token');
-  const headers = { ...options.headers };
-  
-  if (jwt_token) {
-    headers['Authorization'] = `Bearer ${jwt_token}`;
-  }
-  
-  return fetch(`${BACKEND_URL}${path}`, {
-    ...options,
-    headers
-  });
+  return fetch(`${BACKEND_URL}${path}`, options);
 }
 
 // ── Session Management ─────────────────────────────────────
 
 async function initSession() {
-  const { jwt_token } = await chrome.storage.local.get('jwt_token');
-  
-  if (jwt_token) {
-    // Authenticated flow: Fetch documents from platform
-    try {
-      const res = await apiFetch('/api/platform/documents');
+  try {
+    const stored = await chrome.storage.local.get('taxpilot_session_id');
+    if (stored.taxpilot_session_id) {
+      sessionId = stored.taxpilot_session_id;
+      const res = await apiFetch(`/api/documents/${sessionId}`);
       const data = await res.json();
-      if (data.success) {
+      if (data.sessionValid) {
         documents = data.documents || [];
         renderDocumentList();
+        return;
       }
-    } catch (e) {
-      console.error('[TaxPilot] Failed to fetch platform documents:', e);
     }
-  } else {
-    // Unauthenticated flow: Use local session
-    try {
-      const stored = await chrome.storage.local.get('taxpilot_session_id');
-      if (stored.taxpilot_session_id) {
-        sessionId = stored.taxpilot_session_id;
-        const res = await apiFetch(`/api/documents/${sessionId}`);
-        const data = await res.json();
-        if (data.sessionValid) {
-          documents = data.documents || [];
-          renderDocumentList();
-          return;
-        }
-      }
-    } catch (e) {}
+  } catch (e) {}
 
-    try {
-      const res = await apiFetch('/api/documents/session', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        sessionId = data.sessionId;
-        await chrome.storage.local.set({ taxpilot_session_id: sessionId });
-        documents = [];
-        renderDocumentList();
-      }
-    } catch (e) {
-      console.error('[TaxPilot] Failed to create session:', e);
+  try {
+    const res = await apiFetch('/api/documents/session', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      sessionId = data.sessionId;
+      await chrome.storage.local.set({ taxpilot_session_id: sessionId });
+      documents = [];
+      renderDocumentList();
     }
+  } catch (e) {
+    console.error('[TaxPilot] Failed to create session:', e);
   }
 }
 
@@ -280,11 +184,8 @@ async function uploadDocument(type) {
     formData.append('sessionId', sessionId);
     formData.append('type', type);
 
-    const { jwt_token } = await chrome.storage.local.get('jwt_token');
-    const uploadPath = jwt_token ? '/api/platform/documents/upload' : '/api/documents/upload';
-    
     // Do not set Content-Type header when sending FormData!
-    const res = await apiFetch(uploadPath, {
+    const res = await apiFetch('/api/documents/upload', {
       method: 'POST',
       body: formData,
     });
@@ -310,13 +211,8 @@ async function uploadDocument(type) {
 
 async function removeDocument(documentId) {
   try {
-    const { jwt_token } = await chrome.storage.local.get('jwt_token');
-    if (jwt_token) {
-      await apiFetch(`/api/platform/documents/${documentId}`, { method: 'DELETE' });
-    } else {
-      if (!sessionId) return;
-      await apiFetch(`/api/documents/${sessionId}/${documentId}`, { method: 'DELETE' });
-    }
+    if (!sessionId) return;
+    await apiFetch(`/api/documents/${sessionId}/${documentId}`, { method: 'DELETE' });
     documents = documents.filter(d => d.id !== documentId);
     renderDocumentList();
   } catch (error) {}
@@ -782,6 +678,5 @@ function getErrorMessage(error) {
 
 // ── Initialize ─────────────────────────────────────────────
 
-initAuth();
 initSession();
 switchTab('overview');

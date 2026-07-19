@@ -90,10 +90,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // async response
   }
 
-  if (message.action === 'trigger_sync') {
-    handleTriggerSync();
-    return true;
-  }
 });
 
 // ── Handlers ───────────────────────────────────────────────
@@ -244,52 +240,4 @@ async function handleGetActiveTab(sendResponse) {
   }
 }
 
-/**
- * Handle manual or automatic trigger to sync context to the backend
- */
-async function handleTriggerSync() {
-  console.log('[TaxPilot] Triggering context sync');
-  try {
-    const { jwt_token } = await chrome.storage.local.get('jwt_token');
-    if (!jwt_token) {
-      console.log('[TaxPilot] No JWT token found, skipping sync');
-      return;
-    }
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
-
-    // 1. Get DOM Data
-    await ensureContentScript(tab.id);
-    const domResponse = await chrome.tabs.sendMessage(tab.id, { action: 'extract-dom' });
-    if (!domResponse || domResponse.error) {
-      throw new Error(domResponse?.error || 'Failed to extract DOM');
-    }
-
-    // 2. Get Screenshot
-    const screenshotDataUrl = await new Promise((resolve) => {
-      handleScreenshot((res) => resolve(res.screenshot));
-    });
-
-    // 3. Send to Backend
-    const backendUrl = 'https://taxpilot-copilot.onrender.com/api/extension/context'; // For production
-    const res = await fetch(backendUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwt_token}`
-      },
-      body: JSON.stringify({
-        domData: domResponse.data,
-        screenshot: screenshotDataUrl,
-        pageTitle: tab.title,
-        pageUrl: tab.url,
-      })
-    });
-    
-    const result = await res.json();
-    console.log('[TaxPilot] Sync result:', result);
-  } catch (err) {
-    console.error('[TaxPilot] Sync failed:', err);
-  }
-}
